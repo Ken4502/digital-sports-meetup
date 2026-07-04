@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="hero-section">
+    <div class="hero-content">
+        <span class="small-label">Collaborative Development Project</span>
+
+        <h1>Plan, Join, and Manage Sports Meetups Easily</h1>
+
+        <p>
+            A simple web-based meetup scheduling platform that allows organizers
+            to create sports meetups and allows participants to browse and RSVP
+            for active events.
+        </p>
+
+        <div class="hero-buttons">
+            <a class="btn primary-btn" href="{{ url_for('create_meetup') }}">Create Meetup</a>
+            <a class="btn outline-btn" href="{{ url_for('active_meetups') }}">Browse Meetups</a>
+        </div>
+    </div>
+
+    <div class="hero-card">
+        <h3>Module Features</h3>
+
+        <div class="feature-item">
+            <span>01</span>
+            <p>Create sports meetup with date, time, location, and capacity.</p>
+        </div>
+
+        <div class="feature-item">
+            <span>02</span>
+            <p>View all active sports meetups in a clean listing page.</p>
+        </div>
+
+        <div class="feature-item">
+            <span>03</span>
+            <p>RSVP with duplicate joining and full capacity prevention.</p>
+        </div>
+    </div>
+</section>
+
+<section class="dashboard-grid">
+    <div class="dashboard-card">
+        <div class="card-icon green">+</div>
+        <h3>Create Meetup</h3>
+        <p>Organizer can create a new sports meetup and publish it to Firestore.</p>
+    </div>
+
+    <div class="dashboard-card">
+        <div class="card-icon blue">📅</div>
+        <h3>View Active Meetups</h3>
+        <p>Participants can browse available sports events with available slots.</p>
+    </div>
+
+    <div class="dashboard-card">
+        <div class="card-icon orange">✓</div>
+        <h3>RSVP Control</h3>
+        <p>The system prevents duplicate RSVP and blocks joining when full.</p>
+    </div>
+</section>
+
+{% endblock %}

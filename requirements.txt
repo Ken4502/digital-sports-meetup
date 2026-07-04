@@ -1,0 +1,8 @@
+# To install all dependencies for development, run:
+# pip install -r requirements.txt
+
+-r requirements-dev.txt # Installs pytest
+
+flask
+firebase-admin
+google-cloud-firestore

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="create-page-layout">
+    <div class="create-hero-card">
+        <span class="small-label">Organizer Hub</span>
+        <h1>Edit Meetup</h1>
+        <p>
+            You are editing an existing sports meetup. You can modify details
+            like the capacity, date, time, and location.
+        </p>
+
+        <div class="hero-checklist">
+            <div>
+                <span>✏️</span>
+                <p>Update any incorrect or outdated information.</p>
+            </div>
+            <div>
+                <span>🔄</span>
+                <p>Changes will be reflected immediately for all participants.</p>
+            </div>
+            <div>
+                <span>💾</span>
+                <p>Click "Save Changes" to apply your modifications.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="create-form-card">
+        <div class="form-title-row">
+            <div>
+                <h2>Meetup Details</h2>
+                <p>Modify the form below and save your changes.</p>
+            </div>
+            <span class="form-badge">Editing</span>
+        </div>
+
+        <form method="POST" action="{{ url_for('edit_meetup', meetup_id=meetup.id) }}" class="modern-form" novalidate>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sport_type">Sport Type <span>*</span></label>
+                    <select id="sport_type" name="sport_type" required>
+                        <option value="" disabled>Select a sport</option>
+                        {% for sport in sport_options %}
+                            <option value="{{ sport }}" {% if sport == form_data.sport_type %}selected{% endif %}>
+                                {{ sport }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="capacity">Participant Capacity <span>*</span></label>
+                    <input
+                        type="number"
+                        id="capacity"
+                        name="capacity"
+                        placeholder="Example: 10"
+                        value="{{ form_data.capacity }}"
+                        required
+                        min="1"
+                        max="100"
+                    >
+                    <small>Must be between 1 and 100.</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="meetup_date">Meetup Date <span>*</span></label>
+                    <input
+                        type="date"
+                        id="meetup_date"
+                        name="meetup_date"
+                        value="{{ form_data.meetup_date }}"
+                        required
+                        min="{{ min_date }}"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="meetup_time">Meetup Time <span>*</span></label>
+                    <input
+                        type="time"
+                        id="meetup_time"
+                        name="meetup_time"
+                        value="{{ form_data.meetup_time }}"
+                        required
+                    >
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="state">State <span>*</span></label>
+                    <select id="state" name="state" required>
+                        <option value="" disabled>Select a state</option>
+                        <option value="Penang" {% if form_data.state == "Penang" %}selected{% endif %}>Penang</option>
+                        <option value="Kuala Lumpur" {% if form_data.state == "Kuala Lumpur" %}selected{% endif %}>Kuala Lumpur</option>
+                        <option value="Selangor" {% if form_data.state == "Selangor" %}selected{% endif %}>Selangor</option>
+                        <option value="Perak" {% if form_data.state == "Perak" %}selected{% endif %}>Perak</option>
+                        <option value="Kedah" {% if form_data.state == "Kedah" %}selected{% endif %}>Kedah</option>
+                        <option value="Perlis" {% if form_data.state == "Perlis" %}selected{% endif %}>Perlis</option>
+                        <option value="Johor" {% if form_data.state == "Johor" %}selected{% endif %}>Johor</option>
+                        <option value="Melaka" {% if form_data.state == "Melaka" %}selected{% endif %}>Melaka</option>
+                        <option value="Negeri Sembilan" {% if form_data.state == "Negeri Sembilan" %}selected{% endif %}>Negeri Sembilan</option>
+                        <option value="Pahang" {% if form_data.state == "Pahang" %}selected{% endif %}>Pahang</option>
+                        <option value="Terengganu" {% if form_data.state == "Terengganu" %}selected{% endif %}>Terengganu</option>
+                        <option value="Kelantan" {% if form_data.state == "Kelantan" %}selected{% endif %}>Kelantan</option>
+                        <option value="Sabah" {% if form_data.state == "Sabah" %}selected{% endif %}>Sabah</option>
+                        <option value="Sarawak" {% if form_data.state == "Sarawak" %}selected{% endif %}>Sarawak</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="postcode">Postcode</label>
+                    <input
+                        type="text"
+                        id="postcode"
+                        name="postcode"
+                        placeholder="Example: 11900"
+                        value="{{ form_data.postcode }}"
+                        pattern="\d{5}"
+                    >
+                    <small>Must be 5 digits, e.g., 50480.</small>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="venue_name">Exact Venue / Place Name <span>*</span></label>
+                <input
+                    type="text"
+                    id="venue_name"
+                    name="venue_name"
+                    placeholder="Example: Lee Chong Wei Sports Arena"
+                    value="{{ form_data.venue_name }}"
+                    required
+                    minlength="3"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="address">Detailed Address / Location Guide <span>*</span></label>
+                <input
+                    type="text"
+                    id="address"
+                    name="address"
+                    placeholder="Example: Lot 1234, Jalan Bukit Jalil"
+                    value="{{ form_data.address }}"
+                    required
+                    minlength="5"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description (Optional)</label>
+                <textarea id="description" name="description" rows="4" placeholder="Any extra details, e.g., 'Court 7, bring your own rackets'.">{{ form_data.description }}</textarea>
+                <small>Maximum 300 characters.</small>
+            </div>
+
+            <div class="form-actions">
+                <a href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}" class="btn cancel-btn">Cancel</a>
+                <button type="submit" class="btn primary-btn">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
