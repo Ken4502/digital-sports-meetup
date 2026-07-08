@@ -1,9 +1,30 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Digital Sports Meetup</title>
-</head>
-<body>
-    <h1>Hello from Flask 👋</h1>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-text">
+        <p class="tagline">Stage 1: Project Setup</p>
+        <h1>Smart Sports Meetup Platform</h1>
+        <p>
+            A simple web application that helps users discover and join sports meetup activities.
+            This first stage sets up the basic Flask project structure and homepage.
+        </p>
+        <a class="button" href="{{ url_for('about') }}">View Project Info</a>
+    </div>
+</section>
+
+<section class="cards">
+    <div class="card">
+        <h3>Find Sports Activities</h3>
+        <p>Users can view available sports meetups in future development stages.</p>
+    </div>
+    <div class="card">
+        <h3>Create Meetup</h3>
+        <p>Organizers will be able to create sports activities for others to join.</p>
+    </div>
+    <div class="card">
+        <h3>RSVP Feature</h3>
+        <p>Participants will be able to join meetups and track their participation.</p>
+    </div>
+</section>
+{% endblock %}
