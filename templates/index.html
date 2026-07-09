@@ -1,30 +1,42 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="hero">
-    <div class="hero-text">
-        <p class="tagline">Stage 1: Project Setup</p>
+
+<section class="hero-section">
+    <div class="hero-content">
+        <span class="small-label">Meetup Schedule Management</span>
+
         <h1>Smart Sports Meetup Platform</h1>
+
         <p>
-            A simple web application that helps users discover and join sports meetup activities.
-            This first stage sets up the basic Flask project structure and homepage.
+            This stage focuses on the organizer create meetup function. Other pages
+            are kept as basic working pages for navigation and simple testing.
         </p>
-        <a class="button" href="{{ url_for('about') }}">View Project Info</a>
+
+        <div class="hero-buttons">
+            <a class="btn primary-btn" href="{{ url_for('create_meetup') }}">Create Meetup</a>
+            <a class="btn outline-btn" href="{{ url_for('active_meetups') }}">View Active Meetups</a>
+        </div>
+    </div>
+
+    <div class="hero-card">
+        <h3>Stage 2 Scope</h3>
+
+        <div class="feature-item">
+            <span>01</span>
+            <p>Create meetup with sport type, date, time, location, and capacity.</p>
+        </div>
+
+        <div class="feature-item">
+            <span>02</span>
+            <p>Save created meetup into Firebase Firestore.</p>
+        </div>
+
+        <div class="feature-item">
+            <span>03</span>
+            <p>Basic active meetup and meetup detail pages for testing.</p>
+        </div>
     </div>
 </section>
 
-<section class="cards">
-    <div class="card">
-        <h3>Find Sports Activities</h3>
-        <p>Users can view available sports meetups in future development stages.</p>
-    </div>
-    <div class="card">
-        <h3>Create Meetup</h3>
-        <p>Organizers will be able to create sports activities for others to join.</p>
-    </div>
-    <div class="card">
-        <h3>RSVP Feature</h3>
-        <p>Participants will be able to join meetups and track their participation.</p>
-    </div>
-</section>
 {% endblock %}
