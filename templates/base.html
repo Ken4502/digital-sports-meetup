@@ -2,25 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Sports Meetup</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <header class="navbar">
-        <div class="logo">AthleLink</div>
-        <nav>
-            <a href="{{ url_for('home') }}">Home</a>
-            <a href="{{ url_for('about') }}">About</a>
-        </nav>
-    </header>
 
-    <main>
+<body>
+    <nav class="top-navbar">
+        <div class="nav-brand">
+            <div class="logo-circle">SM</div>
+            <div>
+                <h2>Smart Sports Meetup</h2>
+                <span>Meetup Schedule Management</span>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('create_meetup') }}">Create Meetup</a>
+            <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
+        </div>
+    </nav>
+
+    <section class="user-status-bar">
+        <div>
+            Logged in as 
+            <strong>{{ session['user_id'] }}</strong>
+            <span class="role-badge">{{ session['role'] }}</span>
+        </div>
+
+        <div class="switch-links">
+            <a href="{{ url_for('switch_user', role='organizer') }}">Organizer Mode</a>
+            <a href="{{ url_for('switch_user', role='participant') }}">Participant Mode</a>
+        </div>
+    </section>
+
+    <main class="page-wrapper">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert-box">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
         {% block content %}{% endblock %}
     </main>
-
-    <footer>
-        <p>Smart Sports Meetup Platform - Agile Assignment</p>
-    </footer>
 </body>
 </html>

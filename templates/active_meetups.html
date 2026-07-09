@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <span class="small-label">Participant View</span>
+    <h1>Active Sports Meetups</h1>
+    <p>Basic listing page for participants to view available active meetups.</p>
+</div>
+
+<div class="result-summary">
+    <p>Showing <strong>{{ meetups|length }}</strong> active meetup result(s).</p>
+</div>
+
+{% if meetups %}
+    <div class="meetup-grid">
+        {% for meetup in meetups %}
+            <div class="meetup-card">
+                <div class="meetup-card-header">
+                    <div>
+                        <span class="sport-badge">{{ meetup.sport_type }}</span>
+                        <h2>{{ meetup.title|default(meetup.sport_type ~ ' Meetup') }}</h2>
+                    </div>
+
+                    {% if meetup.is_full %}
+                        <span class="status-badge full">Full</span>
+                    {% else %}
+                        <span class="status-badge active">Active</span>
+                    {% endif %}
+                </div>
+
+                <div class="meetup-info">
+                    <p>
+                        <span>Date</span>
+                        <strong>{{ meetup.meetup_date }}</strong>
+                    </p>
+
+                    <p>
+                        <span>Time</span>
+                        <strong>{{ meetup.meetup_time }}</strong>
+                    </p>
+
+                    <p>
+                        <span>Location</span>
+                        <strong>{{ meetup.location }}</strong>
+                    </p>
+                </div>
+
+                <div class="slot-box">
+                    <div>
+                        <strong>{{ meetup.available_slots }}</strong>
+                        <span>Available Slots</span>
+                    </div>
+
+                    <div>
+                        <strong>{{ meetup.capacity }}</strong>
+                        <span>Total Capacity</span>
+                    </div>
+                </div>
+
+                <a class="btn full-width secondary-btn" href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}">
+                    View Details
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🏀</div>
+        <h2>No Active Meetups</h2>
+        <p>No active meetup is available now.</p>
+    </div>
+{% endif %}
+
+{% endblock %}
