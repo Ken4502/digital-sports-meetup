@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="detail-layout">
+    <div class="detail-main-card">
+        <div class="detail-header">
+            <div>
+                <span class="sport-badge">{{ meetup.sport_type }}</span>
+                <h1>{{ meetup.title|default(meetup.sport_type ~ ' Meetup') }}</h1>
+                <p>{{ meetup.location }}</p>
+            </div>
+
+            {% if meetup.is_full %}
+                <span class="status-badge full">Full</span>
+            {% else %}
+                <span class="status-badge active">Available</span>
+            {% endif %}
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span>Date</span>
+                <strong>{{ meetup.meetup_date }}</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>Time</span>
+                <strong>{{ meetup.meetup_time }}</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>Location</span>
+                <strong>{{ meetup.location }}</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>Capacity</span>
+                <strong>{{ meetup.capacity }}</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>Joined Participants</span>
+                <strong>{{ meetup.joined_count }}</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>Available Slots</span>
+                <strong>{{ meetup.available_slots }}</strong>
+            </div>
+        </div>
+
+        {% if meetup.description %}
+            <div class="notice-box small-notice">
+                <strong>Description:</strong> {{ meetup.description }}
+            </div>
+        {% endif %}
+
+        <div class="rsvp-section">
+            {% if meetup.already_joined %}
+                <div class="notice-box warning">
+                    You have already joined this meetup.
+                </div>
+            {% elif meetup.is_full %}
+                <div class="notice-box danger">
+                    This meetup is already full.
+                </div>
+            {% elif session['role'] == 'participant' %}
+                <form method="POST" action="{{ url_for('rsvp_meetup', meetup_id=meetup.id) }}">
+                    <button type="submit" class="btn primary-btn large-btn">
+                        RSVP / Join Meetup
+                    </button>
+                </form>
+            {% else %}
+                <div class="notice-box warning">
+                    Switch to participant mode to RSVP.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="side-card">
+        <h3>Basic Meetup Summary</h3>
+
+        <div class="summary-row">
+            <span>Sport</span>
+            <strong>{{ meetup.sport_type }}</strong>
+        </div>
+
+        <div class="summary-row">
+            <span>Date</span>
+            <strong>{{ meetup.meetup_date }}</strong>
+        </div>
+
+        <div class="summary-row">
+            <span>Time</span>
+            <strong>{{ meetup.meetup_time }}</strong>
+        </div>
+
+        <div class="summary-row">
+            <span>Available</span>
+            <strong>{{ meetup.available_slots }} slot(s)</strong>
+        </div>
+
+        <a class="btn full-width outline-btn" href="{{ url_for('active_meetups') }}">
+            Back to Active Meetups
+        </a>
+    </div>
+</div>
+
+{% endblock %}
