@@ -44,7 +44,7 @@ jobs:
     - name: Create serviceAccountKey.json
       run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}" > serviceAccountKey.json
       shell: bash
-      if: secrets.FIREBASE_SERVICE_ACCOUNT_KEY != ''
+      if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY != '' }}
 
     # Step 6: Lint with flake8
     - name: Lint with flake8
