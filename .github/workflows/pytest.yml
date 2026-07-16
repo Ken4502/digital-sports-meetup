@@ -38,6 +38,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        # Safely ensure essential CI tools are installed even if missing from requirements.txt
+        pip install flake8 pytest-html
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     # Step 5: Create the Firebase service account key from a GitHub Secret
