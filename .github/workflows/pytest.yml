@@ -44,9 +44,11 @@ jobs:
 
     # Step 5: Create the Firebase service account key from a GitHub Secret
     - name: Create serviceAccountKey.json
-      run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}" > serviceAccountKey.json
+      run: echo "$FIREBASE_KEY" > serviceAccountKey.json
       shell: bash
-      if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY != '' }}
+      env:
+        FIREBASE_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+      if: ${{ env.FIREBASE_KEY != '' }}
 
     # Step 6: Lint with flake8
     - name: Lint with flake8
