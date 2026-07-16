@@ -5,81 +5,11 @@
 <div class="page-header">
     <span class="small-label">Participant View</span>
     <h1>Active Sports Meetups</h1>
-    <p>
-        Browse active sports meetups, search by keyword or location, and filter
-        meetups by sport type or date.
-    </p>
-</div>
-
-<div class="filter-card">
-    <form method="GET" action="{{ url_for('active_meetups') }}" class="filter-form">
-
-        <div class="filter-grid">
-            <div class="form-group">
-                <label>Keyword Search</label>
-                <input
-                    type="text"
-                    name="keyword"
-                    placeholder="Search sport, location, date..."
-                    value="{{ filters.keyword }}"
-                >
-            </div>
-
-            <div class="form-group">
-                <label>State</label>
-                <select name="state">
-                    <option value="">All States</option>
-                    <option value="Penang" {% if filters.state == "Penang" %}selected{% endif %}>Penang</option>
-                    <option value="Kuala Lumpur" {% if filters.state == "Kuala Lumpur" %}selected{% endif %}>Kuala Lumpur</option>
-                    <option value="Selangor" {% if filters.state == "Selangor" %}selected{% endif %}>Selangor</option>
-                    <option value="Perak" {% if filters.state == "Perak" %}selected{% endif %}>Perak</option>
-                    <option value="Kedah" {% if filters.state == "Kedah" %}selected{% endif %}>Kedah</option>
-                    <option value="Perlis" {% if filters.state == "Perlis" %}selected{% endif %}>Perlis</option>
-                    <option value="Johor" {% if filters.state == "Johor" %}selected{% endif %}>Johor</option>
-                    <option value="Melaka" {% if filters.state == "Melaka" %}selected{% endif %}>Melaka</option>
-                    <option value="Negeri Sembilan" {% if filters.state == "Negeri Sembilan" %}selected{% endif %}>Negeri Sembilan</option>
-                    <option value="Pahang" {% if filters.state == "Pahang" %}selected{% endif %}>Pahang</option>
-                    <option value="Terengganu" {% if filters.state == "Terengganu" %}selected{% endif %}>Terengganu</option>
-                    <option value="Kelantan" {% if filters.state == "Kelantan" %}selected{% endif %}>Kelantan</option>
-                    <option value="Sabah" {% if filters.state == "Sabah" %}selected{% endif %}>Sabah</option>
-                    <option value="Sarawak" {% if filters.state == "Sarawak" %}selected{% endif %}>Sarawak</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Sport Type</label>
-                <select name="sport_type">
-                    <option value="">All Sports</option>
-
-                    {% for sport in sport_options %}
-                        <option value="{{ sport }}" {% if filters.sport_type == sport %}selected{% endif %}>
-                            {{ sport }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Meetup Date</label>
-                <input
-                    type="date"
-                    name="meetup_date"
-                    value="{{ filters.meetup_date }}"
-                >
-            </div>
-        </div>
-
-        <div class="filter-actions">
-            <button type="submit" class="btn primary-btn">Apply Search / Filter</button>
-            <a href="{{ url_for('active_meetups') }}" class="btn cancel-btn">Reset</a>
-        </div>
-    </form>
+    <p>Basic listing page for participants to view available active meetups.</p>
 </div>
 
 <div class="result-summary">
-    <p>
-        Showing <strong>{{ meetups|length }}</strong> active meetup result(s).
-    </p>
+    <p>Showing <strong>{{ meetups|length }}</strong> active meetup result(s).</p>
 </div>
 
 {% if meetups %}
@@ -89,7 +19,7 @@
                 <div class="meetup-card-header">
                     <div>
                         <span class="sport-badge">{{ meetup.sport_type }}</span>
-                        <h2>{{ meetup.sport_type }} Meetup</h2>
+                        <h2>{{ meetup.title|default(meetup.sport_type ~ ' Meetup') }}</h2>
                     </div>
 
                     {% if meetup.is_full %}
@@ -128,16 +58,6 @@
                     </div>
                 </div>
 
-                {% if meetup.is_full %}
-                    <div class="notice-box danger small-notice">
-                        This meetup is already full.
-                    </div>
-                {% else %}
-                    <div class="notice-box success small-notice">
-                        Participants can still join this meetup.
-                    </div>
-                {% endif %}
-
                 <a class="btn full-width secondary-btn" href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}">
                     View Details
                 </a>
@@ -147,12 +67,8 @@
 {% else %}
     <div class="empty-state">
         <div class="empty-icon">🏀</div>
-        <h2>No Meetup Results Found</h2>
-        <p>
-            No active meetup matches the current search or filter. Try changing
-            the keyword, location, sport type, or date.
-        </p>
-        <a class="btn primary-btn" href="{{ url_for('active_meetups') }}">Clear Search</a>
+        <h2>No Active Meetups Found</h2>
+        <p>No active meetups found. Try adjusting your filters or check back later!</p>
     </div>
 {% endif %}
 
