@@ -375,19 +375,19 @@ def create_meetup():
 
 @app.route("/active-meetups")
 def active_meetups():
-    if not require_firebase():
-        # Gracefully handle Firebase connection failure to pass the test
+    # Per your analysis, explicitly check for DB connection failure first.
+    if db is None:
         return render_template(
             "active_meetups.html",
             meetups=[],
             filters={
-                "keyword": request.args.get("keyword", ""),
-                "location": request.args.get("location", ""),
-                "sport_type": request.args.get("sport_type", ""),
-                "meetup_date": request.args.get("meetup_date", ""),
+                "keyword": "", "location": "", "sport_type": "", "meetup_date": ""
             },
             sport_options=[],
-            error_message=firebase_error_message
+            # Pass the specific error message to the template.
+            firebase_error_message=firebase_error_message,
+            # This is a new flag to make the template logic even clearer.
+            db_connection_failed=True
         )
 
     keyword = request.args.get("keyword", "").strip().lower()
