@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <span class="small-label">Admin Hub</span>
+    <h1>Manage All Meetups</h1>
+    <p>
+        As an administrator, you can view, edit, or delete any meetup in the
+        system from this page.
+    </p>
+</div>
+
+<div class="admin-table-card">
+    {% if meetups %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Sport</th>
+                    <th>Date & Time</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Organizer</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for meetup in meetups %}
+                    <tr>
+                        <td>
+                            <strong>{{ meetup.sport_type }}</strong>
+                            <br>
+                            <small>{{ meetup.id }}</small>
+                        </td>
+                        <td>
+                            {{ meetup.meetup_date }}
+                            <br>
+                            {{ meetup.meetup_time }}
+                        </td>
+                        <td>{{ meetup.location }}</td>
+                        <td>
+                            <span class="status-badge {{ meetup.status }}">
+                                {{ meetup.status | capitalize }}
+                            </span>
+                        </td>
+                        <td>{{ meetup.organizer_id }}</td>
+                        <td>
+                            <div class="table-actions">
+                                <a href="{{ url_for('edit_meetup', meetup_id=meetup.id) }}" class="btn table-btn">
+                                    Edit
+                                </a>
+                                <form
+                                    method="POST"
+                                    action="{{ url_for('delete_meetup', meetup_id=meetup.id) }}"
+                                    onsubmit="return confirm('Are you sure you want to permanently delete this meetup? This action cannot be undone.');"
+                                >
+                                    <button type="submit" class="btn table-btn danger-btn">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state" style="box-shadow: none; border: none;">
+            <div class="empty-icon">🏀</div>
+            <h2>No Meetups Found</h2>
+            <p>There are no meetups in the database yet.</p>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .status-badge.past {
+        background: var(--warning-bg);
+        color: var(--warning-text);
+    }
+    .table-actions {
+        display: flex;
+        gap: 8px;
+    }
+    .table-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+        border-radius: 12px;
+    }
+    .danger-btn {
+        background: var(--danger-bg);
+        color: var(--danger-text);
+        border: 1px solid var(--danger-text);
+    }
+</style>
+{% endblock %}

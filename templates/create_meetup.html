@@ -1,0 +1,825 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+{% set fd = form_data|default({}) %}
+
+<style>
+    :root {
+        --athle-navy: #243B63;
+        --athle-blue: #2B4C7E;
+        --athle-orange: #DD7E32;
+        --athle-light: #F4F7FB;
+        --athle-card: #FFFFFF;
+        --athle-soft-blue: #DDE6EF;
+        --athle-soft-orange: #FDE3CF;
+        --athle-text: #1F2937;
+        --athle-muted: #6B7280;
+        --athle-border: #D7DEE8;
+        --athle-danger: #B42318;
+        --athle-danger-bg: #FDECEC;
+    }
+
+    .create-page-layout {
+        display: grid;
+        grid-template-columns: 0.9fr 1.2fr;
+        gap: 30px;
+        align-items: stretch;
+        padding: 20px 0 70px;
+    }
+
+    .create-hero-card {
+        position: relative;
+        overflow: hidden;
+        min-height: 680px;
+        border-radius: 34px;
+        padding: 44px;
+        background:
+            radial-gradient(circle at top right, rgba(253, 227, 207, 0.9), transparent 32%),
+            linear-gradient(145deg, #243B63, #2B4C7E);
+        color: white;
+        box-shadow: 0 22px 55px rgba(36, 59, 99, 0.22);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .create-hero-card::after {
+        content: "🏆";
+        position: absolute;
+        right: 36px;
+        bottom: 30px;
+        font-size: 90px;
+        opacity: 0.25;
+    }
+
+    .small-label {
+        display: inline-block;
+        width: fit-content;
+        background: rgba(255, 255, 255, 0.16);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+    }
+
+    .create-hero-card h1 {
+        position: relative;
+        z-index: 1;
+        margin: 22px 0 18px;
+        font-size: 50px;
+        line-height: 1.08;
+        letter-spacing: -1.5px;
+    }
+
+    .create-hero-card p {
+        position: relative;
+        z-index: 1;
+        max-width: 520px;
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 16px;
+        line-height: 1.8;
+    }
+
+    .hero-checklist {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        gap: 14px;
+        margin-top: 30px;
+    }
+
+    .hero-checklist div {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 20px;
+        padding: 14px;
+        backdrop-filter: blur(10px);
+    }
+
+    .hero-checklist span {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--athle-orange);
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: 900;
+        flex-shrink: 0;
+    }
+
+    .hero-checklist p {
+        margin: 0;
+        color: white;
+        font-size: 15px;
+        font-weight: 650;
+    }
+
+    .create-form-card {
+        background: var(--athle-card);
+        border: 1px solid var(--athle-border);
+        border-radius: 34px;
+        padding: 40px;
+        box-shadow: 0 22px 50px rgba(36, 59, 99, 0.12);
+    }
+
+    .form-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 18px;
+        margin-bottom: 28px;
+    }
+
+    .form-title-row h2 {
+        margin: 0 0 8px;
+        font-size: 32px;
+        color: var(--athle-text);
+        letter-spacing: -0.8px;
+    }
+
+    .form-title-row p {
+        margin: 0;
+        color: var(--athle-muted);
+        line-height: 1.6;
+    }
+
+    .form-badge {
+        background: var(--athle-soft-orange);
+        color: var(--athle-orange);
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .client-validation-summary {
+        display: none;
+        background: var(--athle-danger-bg);
+        color: var(--athle-danger);
+        border: 1px solid rgba(180, 35, 24, 0.2);
+        border-radius: 18px;
+        padding: 14px 18px;
+        margin-bottom: 20px;
+        font-weight: 700;
+    }
+
+    .client-validation-summary ul {
+        margin: 8px 0 0;
+        padding-left: 20px;
+    }
+
+    .modern-form {
+        width: 100%;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--athle-text);
+        font-size: 14px;
+        font-weight: 800;
+    }
+
+    .form-group label span {
+        color: var(--athle-danger);
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        border: 1.5px solid var(--athle-border);
+        border-radius: 16px;
+        padding: 0 15px;
+        color: var(--athle-text);
+        background: #FFFFFF;
+        font-size: 15px;
+        outline: none;
+        transition: 0.22s ease;
+        font-family: inherit;
+    }
+
+    .form-group input,
+    .form-group select {
+        height: 54px;
+    }
+
+    .form-group textarea {
+        min-height: 110px;
+        padding-top: 14px;
+        resize: vertical;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        border-color: var(--athle-orange);
+        box-shadow: 0 0 0 5px rgba(221, 126, 50, 0.13);
+    }
+
+    .form-group small {
+        display: block;
+        margin-top: 7px;
+        color: var(--athle-muted);
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    .field-error {
+        margin: 7px 0 0;
+        color: var(--athle-danger);
+        font-size: 13px;
+        font-weight: 700;
+        min-height: 16px;
+    }
+
+    .input-invalid {
+        border-color: var(--athle-danger) !important;
+        box-shadow: 0 0 0 5px rgba(180, 35, 24, 0.12) !important;
+    }
+
+    .section-divider {
+        margin: 8px 0 22px;
+        padding: 14px 16px;
+        background: var(--athle-light);
+        border: 1px solid var(--athle-border);
+        border-radius: 18px;
+    }
+
+    .section-divider h3 {
+        margin: 0 0 5px;
+        color: var(--athle-navy);
+        font-size: 16px;
+    }
+
+    .section-divider p {
+        margin: 0;
+        color: var(--athle-muted);
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .validation-note {
+        background: var(--athle-soft-blue);
+        border: 1px solid var(--athle-border);
+        color: var(--athle-navy);
+        border-radius: 18px;
+        padding: 15px 17px;
+        font-size: 14px;
+        line-height: 1.7;
+        margin-top: 6px;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 14px;
+        margin-top: 24px;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        text-decoration: none;
+        cursor: pointer;
+        border-radius: 999px;
+        padding: 14px 24px;
+        font-size: 15px;
+        font-weight: 900;
+        transition: 0.22s ease;
+    }
+
+    .primary-btn {
+        background: var(--athle-orange);
+        color: white;
+        box-shadow: 0 12px 26px rgba(221, 126, 50, 0.24);
+    }
+
+    .primary-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 18px 34px rgba(221, 126, 50, 0.30);
+    }
+
+    .cancel-btn {
+        background: var(--athle-light);
+        color: var(--athle-blue);
+        border: 1px solid var(--athle-border);
+    }
+
+    .cancel-btn:hover {
+        background: var(--athle-blue);
+        color: white;
+    }
+
+    @media (max-width: 1050px) {
+        .create-page-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .create-hero-card {
+            min-height: auto;
+        }
+    }
+
+    @media (max-width: 650px) {
+        .create-hero-card,
+        .create-form-card {
+            padding: 28px;
+            border-radius: 28px;
+        }
+
+        .create-hero-card h1 {
+            font-size: 38px;
+        }
+
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+
+        .form-title-row {
+            flex-direction: column;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+        }
+    }
+</style>
+
+<section class="create-page-layout">
+
+    <div class="create-hero-card">
+        <span class="small-label">Organizer Workspace</span>
+
+        <h1>Create a Sports Meetup</h1>
+
+        <p>
+            Set up a sports activity with a clear venue, schedule, and participant capacity.
+            Participants will use this information to decide whether to join the meetup.
+        </p>
+
+        <div class="hero-checklist">
+            <div>
+                <span>✓</span>
+                <p>Required meetup information</p>
+            </div>
+
+            <div>
+                <span>✓</span>
+                <p>Specific state and venue location</p>
+            </div>
+
+            <div>
+                <span>✓</span>
+                <p>Optional description for extra event details</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="create-form-card">
+        <div class="form-title-row">
+            <div>
+                <h2>Meetup Details</h2>
+                <p>Complete the required fields before saving the meetup.</p>
+            </div>
+
+            <span class="form-badge">Required</span>
+        </div>
+
+        <div id="validationSummary" class="client-validation-summary">
+            <strong>Please fix the following:</strong>
+            <ul id="validationList"></ul>
+        </div>
+
+        <form method="POST" class="modern-form" id="createMeetupForm" novalidate>
+
+            <div class="section-divider">
+                <h3>Activity Information</h3>
+                <p>Enter the sport type, participant limit, date, and time for this meetup.</p>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sportType">Sport Type <span>*</span></label>
+
+                    <select name="sport_type" id="sportType">
+                        <option value="">Select sport type</option>
+                        <option value="Badminton" {% if fd.get('sport_type') == "Badminton" %}selected{% endif %}>Badminton</option>
+                        <option value="Football" {% if fd.get('sport_type') == "Football" %}selected{% endif %}>Football</option>
+                        <option value="Basketball" {% if fd.get('sport_type') == "Basketball" %}selected{% endif %}>Basketball</option>
+                        <option value="Futsal" {% if fd.get('sport_type') == "Futsal" %}selected{% endif %}>Futsal</option>
+                        <option value="Running" {% if fd.get('sport_type') == "Running" %}selected{% endif %}>Running</option>
+                        <option value="Cycling" {% if fd.get('sport_type') == "Cycling" %}selected{% endif %}>Cycling</option>
+                        <option value="Tennis" {% if fd.get('sport_type') == "Tennis" %}selected{% endif %}>Tennis</option>
+                        <option value="Volleyball" {% if fd.get('sport_type') == "Volleyball" %}selected{% endif %}>Volleyball</option>
+                    </select>
+
+                    <small>Choose the sport activity for this meetup.</small>
+                    <p class="field-error" id="sportTypeError"></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="capacity">Participant Capacity <span>*</span></label>
+
+                    <input
+                        type="number"
+                        name="capacity"
+                        id="capacity"
+                        min="1"
+                        max="100"
+                        placeholder="Example: 10"
+                        value="{{ fd.get('capacity', '') }}"
+                    >
+
+                    <small>Capacity must be between 1 and 100 participants.</small>
+                    <p class="field-error" id="capacityError"></p>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="meetupDate">Meetup Date <span>*</span></label>
+
+                    <input
+                        type="date"
+                        name="meetup_date"
+                        id="meetupDate"
+                        value="{{ fd.get('meetup_date', '') }}"
+                    >
+
+                    <small>Select the meetup date. Past date is not allowed.</small>
+                    <p class="field-error" id="meetupDateError"></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="meetupTime">Meetup Time <span>*</span></label>
+
+                    <input
+                        type="time"
+                        name="meetup_time"
+                        id="meetupTime"
+                        value="{{ fd.get('meetup_time', '') }}"
+                    >
+
+                    <small>Select the meetup time. Past time is not allowed when the date is today.</small>
+                    <p class="field-error" id="meetupTimeError"></p>
+                </div>
+            </div>
+
+            <div class="section-divider">
+                <h3>Location Information</h3>
+                <p>
+                    For Sprint 1, typed location is better than map selection because it is simpler
+                    and does not require Google Maps API setup.
+                </p>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="state">State <span>*</span></label>
+
+                    <select name="state" id="state">
+                        <option value="">Select state</option>
+                        <option value="Penang" {% if fd.get('state') == "Penang" %}selected{% endif %}>Penang</option>
+                        <option value="Kuala Lumpur" {% if fd.get('state') == "Kuala Lumpur" %}selected{% endif %}>Kuala Lumpur</option>
+                        <option value="Selangor" {% if fd.get('state') == "Selangor" %}selected{% endif %}>Selangor</option>
+                        <option value="Perak" {% if fd.get('state') == "Perak" %}selected{% endif %}>Perak</option>
+                        <option value="Kedah" {% if fd.get('state') == "Kedah" %}selected{% endif %}>Kedah</option>
+                        <option value="Perlis" {% if fd.get('state') == "Perlis" %}selected{% endif %}>Perlis</option>
+                        <option value="Johor" {% if fd.get('state') == "Johor" %}selected{% endif %}>Johor</option>
+                        <option value="Melaka" {% if fd.get('state') == "Melaka" %}selected{% endif %}>Melaka</option>
+                        <option value="Negeri Sembilan" {% if fd.get('state') == "Negeri Sembilan" %}selected{% endif %}>Negeri Sembilan</option>
+                        <option value="Pahang" {% if fd.get('state') == "Pahang" %}selected{% endif %}>Pahang</option>
+                        <option value="Terengganu" {% if fd.get('state') == "Terengganu" %}selected{% endif %}>Terengganu</option>
+                        <option value="Kelantan" {% if fd.get('state') == "Kelantan" %}selected{% endif %}>Kelantan</option>
+                        <option value="Sabah" {% if fd.get('state') == "Sabah" %}selected{% endif %}>Sabah</option>
+                        <option value="Sarawak" {% if fd.get('state') == "Sarawak" %}selected{% endif %}>Sarawak</option>
+                    </select>
+
+                    <small>Select the state where the meetup will be held.</small>
+                    <p class="field-error" id="stateError"></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="postcode">Postcode / Area Code</label>
+
+                    <input
+                        type="text"
+                        name="postcode"
+                        id="postcode"
+                        maxlength="5"
+                        placeholder="Example: 11200"
+                        value="{{ fd.get('postcode', '') }}"
+                    >
+
+                    <small>Optional. Use 5 digits if available.</small>
+                    <p class="field-error" id="postcodeError"></p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="venueName">Exact Venue / Place Name <span>*</span></label>
+
+                <input
+                    type="text"
+                    name="venue_name"
+                    id="venueName"
+                    minlength="3"
+                    maxlength="120"
+                    placeholder="Example: TAR UMT Sports Complex"
+                    value="{{ fd.get('venue_name', '') }}"
+                >
+
+                <small>Enter the specific court, field, gym, or sports venue name.</small>
+                <p class="field-error" id="venueNameError"></p>
+            </div>
+
+            <div class="form-group">
+                <label for="address">Detailed Address / Location Guide <span>*</span></label>
+
+                <textarea
+                    name="address"
+                    id="address"
+                    maxlength="250"
+                    placeholder="Example: Sports complex beside Block A, TAR UMT Penang Branch"
+                >{{ fd.get('address', '') }}</textarea>
+
+                <small>Give enough details so participants can find the location easily.</small>
+                <p class="field-error" id="addressError"></p>
+            </div>
+
+            <input type="hidden" name="location" id="combinedLocation" value="{{ fd.get('location', '') }}">
+
+            <div class="section-divider">
+                <h3>Optional Details</h3>
+                <p>Add extra information for participants. This field is optional.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Meetup Description</label>
+
+                <textarea
+                    name="description"
+                    id="description"
+                    maxlength="300"
+                    placeholder="Example: Please bring your own racket and arrive 10 minutes early."
+                >{{ fd.get('description', '') }}</textarea>
+
+                <small>Optional. Maximum 300 characters.</small>
+                <p class="field-error" id="descriptionError"></p>
+            </div>
+
+            <div class="validation-note">
+                <strong>Validation Rules:</strong>
+                Sport type, capacity, date, time, state, exact venue, and detailed address are required.
+                Postcode and description are optional. Past date and time are not allowed.
+            </div>
+
+            <div class="form-actions">
+                <a class="btn cancel-btn" href="{{ url_for('index') }}">Cancel</a>
+                <button type="submit" class="btn primary-btn">Create Meetup</button>
+            </div>
+        </form>
+    </div>
+
+</section>
+
+<script>
+    const form = document.getElementById("createMeetupForm");
+
+    const sportType = document.getElementById("sportType");
+    const capacity = document.getElementById("capacity");
+    const meetupDate = document.getElementById("meetupDate");
+    const meetupTime = document.getElementById("meetupTime");
+
+    const stateInput = document.getElementById("state");
+    const postcodeInput = document.getElementById("postcode");
+    const venueName = document.getElementById("venueName");
+    const address = document.getElementById("address");
+    const description = document.getElementById("description");
+    const combinedLocation = document.getElementById("combinedLocation");
+
+    const validationSummary = document.getElementById("validationSummary");
+    const validationList = document.getElementById("validationList");
+
+    const sportTypeError = document.getElementById("sportTypeError");
+    const capacityError = document.getElementById("capacityError");
+    const meetupDateError = document.getElementById("meetupDateError");
+    const meetupTimeError = document.getElementById("meetupTimeError");
+    const stateError = document.getElementById("stateError");
+    const postcodeError = document.getElementById("postcodeError");
+    const venueNameError = document.getElementById("venueNameError");
+    const addressError = document.getElementById("addressError");
+    const descriptionError = document.getElementById("descriptionError");
+
+    const allowedSports = [
+        "Badminton",
+        "Football",
+        "Basketball",
+        "Futsal",
+        "Running",
+        "Cycling",
+        "Tennis",
+        "Volleyball"
+    ];
+
+    function clearErrors() {
+        validationList.innerHTML = "";
+        validationSummary.style.display = "none";
+
+        const fields = [
+            sportType,
+            capacity,
+            meetupDate,
+            meetupTime,
+            stateInput,
+            postcodeInput,
+            venueName,
+            address,
+            description
+        ];
+
+        const errorTexts = [
+            sportTypeError,
+            capacityError,
+            meetupDateError,
+            meetupTimeError,
+            stateError,
+            postcodeError,
+            venueNameError,
+            addressError,
+            descriptionError
+        ];
+
+        fields.forEach(function(field) {
+            field.classList.remove("input-invalid");
+        });
+
+        errorTexts.forEach(function(errorText) {
+            errorText.textContent = "";
+        });
+    }
+
+    function addError(field, errorText, message, errors) {
+        field.classList.add("input-invalid");
+        errorText.textContent = message;
+        errors.push(message);
+    }
+
+    function isPastDateTime(dateValue, timeValue) {
+        const selectedDateTime = new Date(dateValue + "T" + timeValue);
+        const currentDateTime = new Date();
+
+        return selectedDateTime <= currentDateTime;
+    }
+
+    function combineLocation() {
+        const stateValue = stateInput.value.trim();
+        const postcodeValue = postcodeInput.value.trim();
+        const venueValue = venueName.value.trim();
+        const addressValue = address.value.trim();
+
+        let locationParts = [];
+
+        if (venueValue) {
+            locationParts.push(venueValue);
+        }
+
+        if (addressValue) {
+            locationParts.push(addressValue);
+        }
+
+        if (postcodeValue) {
+            locationParts.push(postcodeValue);
+        }
+
+        if (stateValue) {
+            locationParts.push(stateValue);
+        }
+
+        combinedLocation.value = locationParts.join(", ");
+    }
+
+    form.addEventListener("submit", function(event) {
+        clearErrors();
+
+        const errors = [];
+
+        const sportValue = sportType.value.trim();
+        const capacityValue = capacity.value.trim();
+        const dateValue = meetupDate.value;
+        const timeValue = meetupTime.value;
+
+        const stateValue = stateInput.value.trim();
+        const postcodeValue = postcodeInput.value.trim();
+        const venueValue = venueName.value.trim();
+        const addressValue = address.value.trim();
+        const descriptionValue = description.value.trim();
+
+        if (sportValue === "") {
+            addError(sportType, sportTypeError, "Sport type is required.", errors);
+        } else if (!allowedSports.includes(sportValue)) {
+            addError(sportType, sportTypeError, "Please select a valid sport type.", errors);
+        }
+
+        if (capacityValue === "") {
+            addError(capacity, capacityError, "Participant capacity is required.", errors);
+        } else {
+            const capacityNumber = Number(capacityValue);
+
+            if (!Number.isInteger(capacityNumber)) {
+                addError(capacity, capacityError, "Participant capacity must be a whole number.", errors);
+            } else if (capacityNumber < 1) {
+                addError(capacity, capacityError, "Participant capacity must be at least 1.", errors);
+            } else if (capacityNumber > 100) {
+                addError(capacity, capacityError, "Participant capacity cannot be more than 100.", errors);
+            }
+        }
+
+        if (dateValue === "") {
+            addError(meetupDate, meetupDateError, "Meetup date is required.", errors);
+        }
+
+        if (timeValue === "") {
+            addError(meetupTime, meetupTimeError, "Meetup time is required.", errors);
+        }
+
+        if (dateValue !== "" && timeValue !== "" && isPastDateTime(dateValue, timeValue)) {
+            addError(meetupDate, meetupDateError, "Meetup date and time cannot be in the past.", errors);
+            addError(meetupTime, meetupTimeError, "Meetup date and time cannot be in the past.", errors);
+        }
+
+        if (stateValue === "") {
+            addError(stateInput, stateError, "State is required.", errors);
+        }
+
+        if (postcodeValue !== "" && !/^[0-9]{5}$/.test(postcodeValue)) {
+            addError(postcodeInput, postcodeError, "Postcode must be 5 digits.", errors);
+        }
+
+        if (venueValue === "") {
+            addError(venueName, venueNameError, "Exact venue or place name is required.", errors);
+        } else if (venueValue.length < 3) {
+            addError(venueName, venueNameError, "Venue name must be at least 3 characters.", errors);
+        }
+
+        if (addressValue === "") {
+            addError(address, addressError, "Detailed address or location guide is required.", errors);
+        } else if (addressValue.length < 5) {
+            addError(address, addressError, "Detailed address must be at least 5 characters.", errors);
+        }
+
+        if (descriptionValue.length > 300) {
+            addError(description, descriptionError, "Description cannot be more than 300 characters.", errors);
+        }
+
+        combineLocation();
+
+        if (errors.length > 0) {
+            event.preventDefault();
+
+            errors.forEach(function(error) {
+                const li = document.createElement("li");
+                li.textContent = error;
+                validationList.appendChild(li);
+            });
+
+            validationSummary.style.display = "block";
+
+            validationSummary.scrollIntoView({
+                behavior: "smooth",
+                block: "center"
+            });
+        }
+    });
+</script>
+
+{% endblock %}
