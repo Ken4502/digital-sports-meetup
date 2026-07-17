@@ -122,37 +122,36 @@ def client(monkeypatch):
     import copy
     fake_db = FakeDB(copy.deepcopy(MEETUPS_DATA))
 
+    # Capture the context passed to render_template instead of parsing HTML
+    captured_contexts = []
+    original_render_template = flask_module.render_template
+
+    def capture_context_wrapper(template_name, **context):
+        captured_contexts.append(context)
+        # Return a dummy string as we only need to check the context
+        return f"Template: {template_name}"
+
+    monkeypatch.setattr(flask_module, "render_template", capture_context_wrapper)
     monkeypatch.setattr(flask_module, "db", fake_db)
     monkeypatch.setattr(flask_module, "firebase_error_message", "")
 
     flask_module.app.config.update(TESTING=True)
 
     with flask_module.app.test_client() as test_client:
-        yield test_client
+        # Yield both client and the context capture list
+        yield test_client, captured_contexts
 
 
 # =========================================================
 # Helper Assertions
 # =========================================================
 
-def assert_meetups_in_response(response, expected_ids):
+def get_meetup_ids_from_context(captured_contexts):
     """Asserts that the response contains exactly the meetups with the given IDs."""
-    assert response.status_code == 200
-    # The meetups are passed to the template in the context
-    # We can't directly check the rendered HTML easily without a library like BeautifulSoup
-    # but we can check the number of results if it were passed.
-    # For now, we'll assume the template renders what it's given.
-    # A more robust way is to check the HTML content.
-    
-    # A simple check for now:
-    for meetup_id in expected_ids:
-        assert bytes(f'href="/meetup/{meetup_id}"', 'utf-8') in response.data
-
-    # Check that no other meetups are present
-    all_ids = set(MEETUPS_DATA.keys())
-    unexpected_ids = all_ids - set(expected_ids)
-    for meetup_id in unexpected_ids:
-         assert bytes(f'href="/meetup/{meetup_id}"', 'utf-8') not in response.data
+    assert len(captured_contexts) > 0, "render_template was not called."
+    context = captured_contexts[0]
+    assert "meetups" in context, "Meetups not found in template context."
+    return {meetup["id"] for meetup in context["meetups"]}
 
 
 # =========================================================
@@ -160,57 +159,83 @@ def assert_meetups_in_response(response, expected_ids):
 # =========================================================
 
 def test_no_filters_shows_all_active_meetups(client):
-    response = client.get("/active-meetups")
+    """When no filters are applied, all active meetups should be shown."""
+    test_client, captured_contexts = client
+    response = test_client.get("/active-meetups")
+
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
     # All meetups except the one in the past
-    expected = ["meetup_01", "meetup_02", "meetup_03", "meetup_04", "meetup_05"]
-    assert_meetups_in_response(response, expected)
+    expected_ids = {"meetup_01", "meetup_02", "meetup_03", "meetup_04", "meetup_05"}
+    assert found_ids == expected_ids
 
 
 @pytest.mark.parametrize("keyword, expected_ids", [
-    ("badminton", ["meetup_01", "meetup_04"]), # Matches sport_type
-    ("penang", ["meetup_02", "meetup_04"]),    # Matches location
-    ("2099-07-10", ["meetup_01", "meetup_04"]),# Matches date
-    ("kuala lumpur", ["meetup_01", "meetup_05"]), # Matches multi-word location
-    ("nonexistent", []),                      # No match
-    ("", ["meetup_01", "meetup_02", "meetup_03", "meetup_04", "meetup_05"]), # Empty keyword
+    pytest.param("badminton", {"meetup_01", "meetup_04"}, id="keyword-sport"),
+    pytest.param("penang", {"meetup_02", "meetup_04"}, id="keyword-location"),
+    pytest.param("2099-07-10", {"meetup_01", "meetup_04"}, id="keyword-date"),
+    pytest.param("kuala lumpur", {"meetup_01", "meetup_05"}, id="keyword-multi-word-location"),
+    pytest.param("kl badminton", {"meetup_01"}, id="keyword-multi-word-sport-and-location"),
+    pytest.param("nonexistent", set(), id="keyword-no-match"),
+    pytest.param("", {"meetup_01", "meetup_02", "meetup_03", "meetup_04", "meetup_05"}, id="keyword-empty"),
 ])
 def test_filter_by_keyword(client, keyword, expected_ids):
-    response = client.get(f"/active-meetups?keyword={keyword}")
-    assert_meetups_in_response(response, expected_ids)
+    """Test filtering by a single keyword."""
+    test_client, captured_contexts = client
+    response = test_client.get(f"/active-meetups?keyword={keyword}")
+
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids == expected_ids
 
 
 @pytest.mark.parametrize("location, expected_ids", [
-    ("kuala lumpur", ["meetup_01", "meetup_05"]),
-    ("penang", ["meetup_02", "meetup_04"]),
-    ("johor", ["meetup_03"]),
-    ("georgetown", ["meetup_04"]), # Partial match
-    ("nonexistent", []),
+    pytest.param("kuala lumpur", {"meetup_01", "meetup_05"}, id="location-kl"),
+    pytest.param("penang", {"meetup_02", "meetup_04"}, id="location-penang"),
+    pytest.param("johor", {"meetup_03"}, id="location-johor"),
+    pytest.param("georgetown", {"meetup_04"}, id="location-partial-match"),
+    pytest.param("nonexistent", set(), id="location-no-match"),
 ])
 def test_filter_by_location(client, location, expected_ids):
-    response = client.get(f"/active-meetups?location={location}")
-    assert_meetups_in_response(response, expected_ids)
+    """Test filtering by the location field."""
+    test_client, captured_contexts = client
+    response = test_client.get(f"/active-meetups?location={location}")
+
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids == expected_ids
 
 
 @pytest.mark.parametrize("sport, expected_ids", [
-    ("Badminton", ["meetup_01", "meetup_04"]),
-    ("Football", ["meetup_02"]),
-    ("Running", ["meetup_05"]),
-    ("Tennis", []), # This one is in the past
-    ("Cycling", []), # No meetups for this sport
+    pytest.param("Badminton", {"meetup_01", "meetup_04"}, id="sport-badminton"),
+    pytest.param("Football", {"meetup_02"}, id="sport-football"),
+    pytest.param("Running", {"meetup_05"}, id="sport-running"),
+    pytest.param("Tennis", set(), id="sport-tennis-is-past"),
+    pytest.param("Cycling", set(), id="sport-no-meetups"),
 ])
 def test_filter_by_sport_type(client, sport, expected_ids):
-    response = client.get(f"/active-meetups?sport_type={sport}")
-    assert_meetups_in_response(response, expected_ids)
+    """Test filtering by the sport_type dropdown."""
+    test_client, captured_contexts = client
+    response = test_client.get(f"/active-meetups?sport_type={sport}")
+
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids == expected_ids
 
 
 @pytest.mark.parametrize("date, expected_ids", [
-    ("2099-07-10", ["meetup_01", "meetup_04"]),
-    ("2099-07-11", ["meetup_02"]),
-    ("2099-01-01", []), # No meetups on this date
+    pytest.param("2099-07-10", {"meetup_01", "meetup_04"}, id="date-multiple-meetups"),
+    pytest.param("2099-07-11", {"meetup_02"}, id="date-single-meetup"),
+    pytest.param("2099-01-01", set(), id="date-no-meetups"),
 ])
 def test_filter_by_date(client, date, expected_ids):
-    response = client.get(f"/active-meetups?meetup_date={date}")
-    assert_meetups_in_response(response, expected_ids)
+    """Test filtering by an exact date."""
+    test_client, captured_contexts = client
+    response = test_client.get(f"/active-meetups?meetup_date={date}")
+
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids == expected_ids
 
 
 # =========================================================
@@ -218,35 +243,50 @@ def test_filter_by_date(client, date, expected_ids):
 # =========================================================
 
 def test_filter_by_sport_and_location(client):
+    test_client, captured_contexts = client
     # Find Badminton meetups in Penang
-    response = client.get("/active-meetups?sport_type=Badminton&location=penang")
-    assert_meetups_in_response(response, ["meetup_04"])
+    response = test_client.get("/active-meetups?sport_type=Badminton&location=penang")
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids == {"meetup_04"}
 
 
 def test_filter_by_sport_and_date(client):
+    test_client, captured_contexts = client
     # Find Badminton meetups on 2099-07-10
-    response = client.get("/active-meetups?sport_type=Badminton&meetup_date=2099-07-10")
-    assert_meetups_in_response(response, ["meetup_01", "meetup_04"])
+    response = test_client.get("/active-meetups?sport_type=Badminton&meetup_date=2099-07-10")
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids == {"meetup_01", "meetup_04"}
 
 
 def test_filter_by_keyword_and_sport(client):
+    test_client, captured_contexts = client
     # Find meetups with "penang" in them that are for "Football"
-    response = client.get("/active-meetups?keyword=penang&sport_type=Football")
-    assert_meetups_in_response(response, ["meetup_02"])
+    response = test_client.get("/active-meetups?keyword=penang&sport_type=Football")
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids == {"meetup_02"}
 
 
 def test_all_filters_combined_for_specific_result(client):
+    test_client, captured_contexts = client
     # Find a very specific meetup
-    response = client.get(
+    response = test_client.get(
         "/active-meetups?keyword=georgetown&location=penang&sport_type=Badminton&meetup_date=2099-07-10"
     )
-    assert_meetups_in_response(response, ["meetup_04"])
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids == {"meetup_04"}
 
 
 def test_combined_filters_with_no_results(client):
+    test_client, captured_contexts = client
     # Find Football meetups in Kuala Lumpur (none exist in test data)
-    response = client.get("/active-meetups?sport_type=Football&location=kuala lumpur")
-    assert_meetups_in_response(response, [])
+    response = test_client.get("/active-meetups?sport_type=Football&location=kuala lumpur")
+    assert response.status_code == 200
+    found_ids = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids == set()
 
 
 # =========================================================
@@ -254,40 +294,51 @@ def test_combined_filters_with_no_results(client):
 # =========================================================
 
 def test_filter_is_case_insensitive(client):
+    test_client, captured_contexts = client
     # Keyword filter
-    response_keyword = client.get("/active-meetups?keyword=kL SpOrTs CeNtRe")
-    assert_meetups_in_response(response_keyword, ["meetup_01"])
+    response = test_client.get("/active-meetups?keyword=kL SpOrTs CeNtRe")
+    assert response.status_code == 200
+    found_ids_keyword = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids_keyword == {"meetup_01"}
 
     # Location filter
-    response_location = client.get("/active-meetups?location=kL SpOrTs CeNtRe")
-    assert_meetups_in_response(response_location, ["meetup_01"])
+    captured_contexts.clear() # Reset for next request
+    response = test_client.get("/active-meetups?location=kL SpOrTs CeNtRe")
+    assert response.status_code == 200
+    found_ids_location = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids_location == {"meetup_01"}
 
 
 def test_past_meetups_are_not_shown(client):
+    test_client, captured_contexts = client
     # Try to find the past tennis meetup by its specific sport
-    response = client.get("/active-meetups?sport_type=Tennis")
-    assert_meetups_in_response(response, [])
+    response = test_client.get("/active-meetups?sport_type=Tennis")
+    assert response.status_code == 200
+    found_ids_sport = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids_sport == set()
 
     # Try to find it by its specific location
-    response = client.get("/active-meetups?location=melaka")
-    assert_meetups_in_response(response, [])
+    captured_contexts.clear()
+    response = test_client.get("/active-meetups?location=melaka")
+    assert response.status_code == 200
+    found_ids_location = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids_location == set()
 
 
 def test_firebase_connection_failure(monkeypatch):
     """
-    The active meetups page should still load gracefully (showing no meetups)
+    The active meetups page should still load gracefully and show an empty list
     if the database connection fails.
     """
     monkeypatch.setattr(flask_module, "db", None)
-    monkeypatch.setattr(
-        flask_module,
-        "firebase_error_message",
-        "Test Firebase connection failed"
-    )
+    monkeypatch.setattr(flask_module, "firebase_error_message", "Test connection error")
+
     flask_module.app.config.update(TESTING=True)
 
     with flask_module.app.test_client() as client:
         response = client.get("/active-meetups")
         assert response.status_code == 200
-        # Check for the empty state message or lack of meetups
-        assert b"No active meetups found" in response.data
+        # The real render_template is not called, but we can check the context
+        # that would have been passed if it were.
+        # In this case, the view function returns early, so we check the HTML.
+        assert b"Could not connect to the database" in response.data
