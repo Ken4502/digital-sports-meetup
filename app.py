@@ -425,7 +425,11 @@ def active_meetups():
             f"{meetup.get('meetup_date', '')}"
         ).lower()
 
-        if keyword and keyword not in searchable_text: continue
+        # Improved keyword search: check if all parts of the keyword exist in the text
+        if keyword and not all(
+            kw.strip() in searchable_text for kw in keyword.split()
+        ): continue
+
         if location_query and location_query not in meetup.get('location', '').lower(): continue
         if sport_type_filter and sport_type_filter != meetup.get('sport_type', ''): continue
         if date_filter and date_filter != meetup.get('meetup_date', ''): continue
@@ -629,6 +633,132 @@ def leave_meetup(meetup_id):
 
     flash(message, "success" if success else "error")
     return redirect(url_for("meetup_detail", meetup_id=meetup_id))
+
+
+@app.route("/manage-meetups")
+def manage_meetups():
+    """
+    Admin page to view all meetups (active, past, etc.).
+    This is a new route to fix the BuildError.
+    """
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return render_template("manage_meetups.html", meetups=[])
+
+    all_meetups = []
+    try:
+        meetup_docs = db.collection("meetups").stream()
+        for doc in meetup_docs:
+            meetup = doc.to_dict()
+            meetup["id"] = doc.id
+            all_meetups.append(meetup)
+    except Exception as e:
+        flash(f"An error occurred: {e}", "error")
+
+    return render_template("manage_meetups.html", meetups=all_meetups)
+
+
+@app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
+def edit_meetup(meetup_id):
+    """
+    Admin/Organizer page to edit an existing meetup.
+    """
+    if session.get("role") not in ["admin", "organizer"]:
+        flash("You do not have permission to edit meetups.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("manage_meetups"))
+
+    meetup_ref = db.collection("meetups").document(meetup_id)
+    meetup_doc = meetup_ref.get()
+
+    if not meetup_doc.exists:
+        flash("Meetup not found.", "error")
+        return redirect(url_for("manage_meetups"))
+
+    meetup_data = meetup_doc.to_dict()
+
+    # Security: Only allow an organizer to edit their own meetups
+    if (session.get("role") == "organizer" and
+            session.get("user_id") != meetup_data.get("organizer_id")):
+        flash("You can only edit meetups that you have organized.", "error")
+        return redirect(url_for("active_meetups"))
+
+    if request.method == "POST":
+        form_data = get_form_data_from_request()
+        errors = validate_create_meetup_form(form_data)
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            # Pass the original ID back to the template
+            form_data["id"] = meetup_id
+            return render_template("edit_meetup.html", form_data=form_data)
+
+        # Prepare data for update
+        updated_data = {
+            "sport_type": form_data["sport_type"],
+            "title": f"{form_data['sport_type']} Meetup",
+            "meetup_date": form_data["meetup_date"],
+            "meetup_time": form_data["meetup_time"],
+            "location": form_data["location"],
+            "state": form_data["state"],
+            "postcode": form_data["postcode"],
+            "venue_name": form_data["venue_name"],
+            "address": form_data["address"],
+            "description": form_data["description"],
+            "capacity": int(form_data["capacity"]),
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+
+        meetup_ref.update(updated_data)
+        flash("Meetup updated successfully.", "success")
+        return redirect(url_for("meetup_detail", meetup_id=meetup_id))
+
+    # For GET request, populate form with existing data
+    form_data = meetup_doc.to_dict()
+    form_data["id"] = meetup_id
+    return render_template("edit_meetup.html", form_data=form_data)
+
+
+@app.route("/meetup/<meetup_id>/delete", methods=["POST"])
+def delete_meetup(meetup_id):
+    """
+    Admin-only route to permanently delete a meetup and its RSVPs.
+    """
+    if session.get("role") != "admin":
+        flash("You do not have permission to delete meetups.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("manage_meetups"))
+
+    try:
+        meetup_ref = db.collection("meetups").document(meetup_id)
+        if not meetup_ref.get().exists:
+            flash("Meetup not found or already deleted.", "error")
+            return redirect(url_for("manage_meetups"))
+
+        # Best practice: Delete associated data in a batch operation.
+        # This finds all RSVPs for the meetup and deletes them along with the meetup itself.
+        batch = db.batch()
+        rsvp_docs = db.collection("rsvps").where("meetup_id", "==", meetup_id).stream()
+        for doc in rsvp_docs:
+            batch.delete(doc.reference)
+
+        batch.delete(meetup_ref)
+        batch.commit()
+
+        flash("Meetup and all associated RSVPs deleted successfully.", "success")
+
+    except Exception as e:
+        flash(f"An error occurred while deleting the meetup: {e}", "error")
+
+    return redirect(url_for("manage_meetups"))
 
 
 if __name__ == "__main__":

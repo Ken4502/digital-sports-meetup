@@ -8,6 +8,49 @@
     <p>Basic listing page for participants to view available active meetups.</p>
 </div>
 
+<!-- Search and Filter Form -->
+<div class="create-form-card" style="margin-bottom: 30px;">
+    <div class="form-title-row">
+        <div>
+            <h2 style="font-size: 28px;">Find a Meetup</h2>
+            <p>Filter by keyword, location, sport, or date.</p>
+        </div>
+    </div>
+
+    <form method="GET" action="{{ url_for('active_meetups') }}" class="modern-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="keyword">Keyword</label>
+                <input type="text" id="keyword" name="keyword" placeholder="e.g., Badminton, KL" value="{{ filters.keyword or '' }}">
+            </div>
+            <div class="form-group">
+                <label for="location">State / Location</label>
+                <input type="text" id="location" name="location" placeholder="e.g., Penang, Johor" value="{{ filters.location or '' }}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sport_type">Sport Type</label>
+                <select id="sport_type" name="sport_type">
+                    <option value="">All Sports</option>
+                    {% for sport in sport_options %}
+                        <option value="{{ sport }}" {% if filters.sport_type == sport %}selected{% endif %}>{{ sport }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="meetup_date">Date</label>
+                <input type="date" id="meetup_date" name="meetup_date" value="{{ filters.meetup_date or '' }}">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{{ url_for('active_meetups') }}" class="btn cancel-btn">Reset</a>
+            <button type="submit" class="btn primary-btn">Search</button>
+        </div>
+    </form>
+</div>
+
 <div class="result-summary">
     <p>Showing <strong>{{ meetups|length }}</strong> active meetup result(s).</p>
 </div>
