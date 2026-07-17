@@ -122,37 +122,36 @@ def client(monkeypatch):
     import copy
     fake_db = FakeDB(copy.deepcopy(MEETUPS_DATA))
 
+    # Capture the context passed to render_template instead of parsing HTML
+    captured_contexts = []
+    original_render_template = flask_module.render_template
+
+    def capture_context_wrapper(template_name, **context):
+        captured_contexts.append(context)
+        # Return a dummy string as we only need to check the context
+        return f"Template: {template_name}"
+
+    monkeypatch.setattr(flask_module, "render_template", capture_context_wrapper)
     monkeypatch.setattr(flask_module, "db", fake_db)
     monkeypatch.setattr(flask_module, "firebase_error_message", "")
 
     flask_module.app.config.update(TESTING=True)
 
     with flask_module.app.test_client() as test_client:
-        yield test_client
+        # Yield both client and the context capture list
+        yield test_client, captured_contexts
 
 
 # =========================================================
 # Helper Assertions
 # =========================================================
 
-def assert_meetups_in_response(response, expected_ids):
+def get_meetup_ids_from_context(captured_contexts):
     """Asserts that the response contains exactly the meetups with the given IDs."""
-    assert response.status_code == 200
-    # The meetups are passed to the template in the context
-    # We can't directly check the rendered HTML easily without a library like BeautifulSoup
-    # but we can check the number of results if it were passed.
-    # For now, we'll assume the template renders what it's given.
-    # A more robust way is to check the HTML content.
-    
-    # A simple check for now:
-    for meetup_id in expected_ids:
-        assert bytes(f'href="/meetup/{meetup_id}"', 'utf-8') in response.data
-
-    # Check that no other meetups are present
-    all_ids = set(MEETUPS_DATA.keys())
-    unexpected_ids = all_ids - set(expected_ids)
-    for meetup_id in unexpected_ids:
-         assert bytes(f'href="/meetup/{meetup_id}"', 'utf-8') not in response.data
+    assert len(captured_contexts) > 0, "render_template was not called."
+    context = captured_contexts[0]
+    assert "meetups" in context, "Meetups not found in template context."
+    return {meetup["id"] for meetup in context["meetups"]}
 
 
 # =========================================================
