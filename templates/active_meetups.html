@@ -55,7 +55,16 @@
     <p>Showing <strong>{{ meetups|length }}</strong> active meetup result(s).</p>
 </div>
 
-{% if meetups %}
+{% if db_connection_failed %}
+    <div class="empty-state">
+        <div class="empty-icon">🔌</div>
+        <h2>Database Connection Error</h2>
+        <p>Could not connect to the database to fetch meetups.</p>
+        {% if firebase_error_message %}
+            <p style="color: var(--danger-text); font-size: 14px; margin-top: 10px;">Error: {{ firebase_error_message }}</p>
+        {% endif %}
+    </div>
+{% elif meetups %}
     <div class="meetup-grid">
         {% for meetup in meetups %}
             <div class="meetup-card">
@@ -111,7 +120,11 @@
     <div class="empty-state">
         <div class="empty-icon">🏀</div>
         <h2>No Active Meetups Found</h2>
-        <p>No active meetups found. Try adjusting your filters or check back later!</p>
+        {% if filters.keyword or filters.location or filters.sport_type or filters.meetup_date %}
+            <p>No active meetups match your current filters. Try adjusting your search criteria.</p>
+        {% else %}
+            <p>There are no active meetups at the moment. Why not switch to Organizer mode and create one?</p>
+        {% endif %}
     </div>
 {% endif %}
 
