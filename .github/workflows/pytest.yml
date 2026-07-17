@@ -3,9 +3,9 @@ name: Python Application Testing
 # Trigger the workflow on pushes/pull requests and on a daily schedule
 on:
   push:
-    branches: [ "main", "master" , "KKTPBranch"]
+    branches: [ "main", "master" , "KKTPBranch", "CKXBranch"]
   pull_request:
-    branches: [ "main", "master" , "KKTPBranch"]
+    branches: [ "main", "master" , "KKTPBranch", "CKXBranch"]
   schedule:
     - cron: '0 8 * * *' # Runs at 8:00 AM UTC every day
 
