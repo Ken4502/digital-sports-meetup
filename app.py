@@ -391,7 +391,7 @@ def active_meetups():
         )
 
     keyword = request.args.get("keyword", "").strip().lower()
-    location_query = request.args.get("location", "").strip().lower()
+    state_filter = request.args.get("state", "").strip()
     sport_type_filter = request.args.get("sport_type", "").strip()
     date_filter = request.args.get("meetup_date", "").strip()
 
@@ -430,7 +430,7 @@ def active_meetups():
             kw.strip() in searchable_text for kw in keyword.split()
         ): continue
 
-        if location_query and location_query not in meetup.get('location', '').lower(): continue
+        if state_filter and state_filter != meetup.get('state', ''): continue
         if sport_type_filter and sport_type_filter != meetup.get('sport_type', ''): continue
         if date_filter and date_filter != meetup.get('meetup_date', ''): continue
 
@@ -450,7 +450,7 @@ def active_meetups():
 
     filters = {
         "keyword": request.args.get("keyword", ""),
-        "location": request.args.get("location", ""),
+        "state": state_filter,
         "sport_type": sport_type_filter,
         "meetup_date": date_filter,
     }
