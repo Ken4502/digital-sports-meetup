@@ -82,31 +82,37 @@ MEETUPS_DATA = {
     "meetup_01": create_meetup_doc("meetup_01", {
         "sport_type": "Badminton",
         "location": "KL Sports Centre, Kuala Lumpur",
+        "state": "Kuala Lumpur",
         "meetup_date": "2099-07-10",
     }),
     "meetup_02": create_meetup_doc("meetup_02", {
         "sport_type": "Football",
         "location": "Penang National Park, Penang",
+        "state": "Penang",
         "meetup_date": "2099-07-11",
     }),
     "meetup_03": create_meetup_doc("meetup_03", {
         "sport_type": "Basketball",
         "location": "Johor Bahru Community Hall, Johor",
+        "state": "Johor",
         "meetup_date": "2099-07-12",
     }),
     "meetup_04": create_meetup_doc("meetup_04", {
         "sport_type": "Badminton",
         "location": "Georgetown Badminton Court, Penang",
+        "state": "Penang",
         "meetup_date": "2099-07-10", # Same date as meetup_01
     }),
     "meetup_05": create_meetup_doc("meetup_05", {
         "sport_type": "Running",
         "location": "Bukit Jalil Park, Kuala Lumpur",
+        "state": "Kuala Lumpur",
         "meetup_date": "2099-08-01",
     }),
     "meetup_past": create_meetup_doc("meetup_past", {
         "sport_type": "Tennis",
         "location": "Old Tennis Court, Melaka",
+        "state": "Melaka",
         "meetup_date": "2020-01-01", # In the past
     }),
 }
@@ -189,21 +195,20 @@ def test_filter_by_keyword(client, keyword, expected_ids):
     assert found_ids == expected_ids
 
 
-@pytest.mark.parametrize("location, expected_ids", [
-    pytest.param("kuala lumpur", {"meetup_01", "meetup_05"}, id="location-kl"),
-    pytest.param("penang", {"meetup_02", "meetup_04"}, id="location-penang"),
-    pytest.param("johor", {"meetup_03"}, id="location-johor"),
-    pytest.param("georgetown", {"meetup_04"}, id="location-partial-match"),
-    pytest.param("nonexistent", set(), id="location-no-match"),
+@pytest.mark.parametrize("state, expected_ids", [
+    pytest.param("Kuala Lumpur", {"meetup_01", "meetup_05"}, id="state-kl"),
+    pytest.param("Penang", {"meetup_02", "meetup_04"}, id="state-penang"),
+    pytest.param("Johor", {"meetup_03"}, id="state-johor"),
+    pytest.param("Selangor", set(), id="state-no-match"),
 ])
-def test_filter_by_location(client, location, expected_ids):
-    """Test filtering by the location field."""
+def test_filter_by_state(client, state, expected_ids):
+    """Test filtering by the state dropdown."""
     test_client, captured_contexts = client
-    response = test_client.get(f"/active-meetups?location={location}")
+    response = test_client.get(f"/active-meetups?state={state}")
 
     assert response.status_code == 200
     found_ids = get_meetup_ids_from_context(captured_contexts)
-    assert found_ids == expected_ids
+    assert found_ids == expected_ids, f"Failed on state filter: {state}"
 
 
 @pytest.mark.parametrize("sport, expected_ids", [
@@ -245,7 +250,7 @@ def test_filter_by_date(client, date, expected_ids):
 def test_filter_by_sport_and_location(client):
     test_client, captured_contexts = client
     # Find Badminton meetups in Penang
-    response = test_client.get("/active-meetups?sport_type=Badminton&location=penang")
+    response = test_client.get("/active-meetups?sport_type=Badminton&state=Penang")
     assert response.status_code == 200
     found_ids = get_meetup_ids_from_context(captured_contexts)
     assert found_ids == {"meetup_04"}
@@ -273,7 +278,7 @@ def test_all_filters_combined_for_specific_result(client):
     test_client, captured_contexts = client
     # Find a very specific meetup
     response = test_client.get(
-        "/active-meetups?keyword=georgetown&location=penang&sport_type=Badminton&meetup_date=2099-07-10"
+        "/active-meetups?keyword=georgetown&state=Penang&sport_type=Badminton&meetup_date=2099-07-10"
     )
     assert response.status_code == 200
     found_ids = get_meetup_ids_from_context(captured_contexts)
@@ -283,7 +288,7 @@ def test_all_filters_combined_for_specific_result(client):
 def test_combined_filters_with_no_results(client):
     test_client, captured_contexts = client
     # Find Football meetups in Kuala Lumpur (none exist in test data)
-    response = test_client.get("/active-meetups?sport_type=Football&location=kuala lumpur")
+    response = test_client.get("/active-meetups?sport_type=Football&state=Kuala Lumpur")
     assert response.status_code == 200
     found_ids = get_meetup_ids_from_context(captured_contexts)
     assert found_ids == set()
@@ -301,12 +306,12 @@ def test_filter_is_case_insensitive(client):
     found_ids_keyword = get_meetup_ids_from_context(captured_contexts)
     assert found_ids_keyword == {"meetup_01"}
 
-    # Location filter
+    # Keyword filter should still work on the full location string
     captured_contexts.clear() # Reset for next request
-    response = test_client.get("/active-meetups?location=kL SpOrTs CeNtRe")
+    response = test_client.get("/active-meetups?keyword=kL SpOrTs CeNtRe")
     assert response.status_code == 200
-    found_ids_location = get_meetup_ids_from_context(captured_contexts)
-    assert found_ids_location == {"meetup_01"}
+    found_ids_keyword_again = get_meetup_ids_from_context(captured_contexts)
+    assert found_ids_keyword_again == {"meetup_01"}
 
 
 def test_past_meetups_are_not_shown(client):
@@ -319,7 +324,7 @@ def test_past_meetups_are_not_shown(client):
 
     # Try to find it by its specific location
     captured_contexts.clear()
-    response = test_client.get("/active-meetups?location=melaka")
+    response = client.get("/active-meetups?state=Melaka")
     assert response.status_code == 200
     found_ids_location = get_meetup_ids_from_context(captured_contexts)
     assert found_ids_location == set()

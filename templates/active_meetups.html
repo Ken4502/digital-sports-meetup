@@ -24,8 +24,24 @@
                 <input type="text" id="keyword" name="keyword" placeholder="e.g., Badminton, KL" value="{{ filters.keyword or '' }}">
             </div>
             <div class="form-group">
-                <label for="location">State / Location</label>
-                <input type="text" id="location" name="location" placeholder="e.g., Penang, Johor" value="{{ filters.location or '' }}">
+                <label for="state">State</label>
+                <select id="state" name="state">
+                    <option value="">All States</option>
+                    <option value="Penang" {% if filters.state == "Penang" %}selected{% endif %}>Penang</option>
+                    <option value="Kuala Lumpur" {% if filters.state == "Kuala Lumpur" %}selected{% endif %}>Kuala Lumpur</option>
+                    <option value="Selangor" {% if filters.state == "Selangor" %}selected{% endif %}>Selangor</option>
+                    <option value="Perak" {% if filters.state == "Perak" %}selected{% endif %}>Perak</option>
+                    <option value="Kedah" {% if filters.state == "Kedah" %}selected{% endif %}>Kedah</option>
+                    <option value="Perlis" {% if filters.state == "Perlis" %}selected{% endif %}>Perlis</option>
+                    <option value="Johor" {% if filters.state == "Johor" %}selected{% endif %}>Johor</option>
+                    <option value="Melaka" {% if filters.state == "Melaka" %}selected{% endif %}>Melaka</option>
+                    <option value="Negeri Sembilan" {% if filters.state == "Negeri Sembilan" %}selected{% endif %}>Negeri Sembilan</option>
+                    <option value="Pahang" {% if filters.state == "Pahang" %}selected{% endif %}>Pahang</option>
+                    <option value="Terengganu" {% if filters.state == "Terengganu" %}selected{% endif %}>Terengganu</option>
+                    <option value="Kelantan" {% if filters.state == "Kelantan" %}selected{% endif %}>Kelantan</option>
+                    <option value="Sabah" {% if filters.state == "Sabah" %}selected{% endif %}>Sabah</option>
+                    <option value="Sarawak" {% if filters.state == "Sarawak" %}selected{% endif %}>Sarawak</option>
+                </select>
             </div>
         </div>
         <div class="form-row">
@@ -120,7 +136,7 @@
     <div class="empty-state">
         <div class="empty-icon">🏀</div>
         <h2>No Active Meetups Found</h2>
-        {% if filters.keyword or filters.location or filters.sport_type or filters.meetup_date %}
+        {% if filters.keyword or filters.state or filters.sport_type or filters.meetup_date %}
             <p>No active meetups match your current filters. Try adjusting your search criteria.</p>
         {% else %}
             <p>There are no active meetups at the moment. Why not switch to Organizer mode and create one?</p>
