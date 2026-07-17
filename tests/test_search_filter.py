@@ -324,7 +324,7 @@ def test_past_meetups_are_not_shown(client):
 
     # Try to find it by its specific location
     captured_contexts.clear()
-    response = client.get("/active-meetups?state=Melaka")
+    response = test_client.get("/active-meetups?state=Melaka")
     assert response.status_code == 200
     found_ids_location = get_meetup_ids_from_context(captured_contexts)
     assert found_ids_location == set()
