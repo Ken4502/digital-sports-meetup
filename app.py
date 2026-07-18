@@ -176,21 +176,16 @@ def build_location_from_form():
 
 
 def get_form_data_from_request():
-    state = request.form.get("state", "").strip()
-    postcode = request.form.get("postcode", "").strip()
-    venue_name = request.form.get("venue_name", "").strip()
-    address = request.form.get("address", "").strip()
-
     return {
         "sport_type": request.form.get("sport_type", "").strip(),
         "capacity": request.form.get("capacity", "").strip(),
         "meetup_date": request.form.get("meetup_date", "").strip(),
         "meetup_time": request.form.get("meetup_time", "").strip(),
         "location": build_location_from_form(),
-        "state": state,
-        "postcode": postcode,
-        "venue_name": venue_name,
-        "address": address,
+        "state": request.form.get("state", "").strip(),
+        "postcode": request.form.get("postcode", "").strip(),
+        "venue_name": request.form.get("venue_name", "").strip(),
+        "address": request.form.get("address", "").strip(),
         "description": request.form.get("description", "").strip(),
     }
 
@@ -247,7 +242,7 @@ def validate_create_meetup_form(form_data):
 
     # SCRUM-168: Location validation
     # New UI has state/postcode/venue/address. Old UI has location only.
-    using_new_location_fields = bool(state or postcode or venue_name or address)
+    using_new_location_fields = True # Always use new fields for validation
 
     if using_new_location_fields:
         if not state:
@@ -265,13 +260,59 @@ def validate_create_meetup_form(form_data):
             errors.append("Detailed address or location guide is required.")
         elif len(address) < 5:
             errors.append("Detailed address must be at least 5 characters.")
-    else:
-        if not location:
-            errors.append("Meetup location is required.")
-        elif len(location) < 3:
-            errors.append("Meetup location must be at least 3 characters.")
 
     # Optional description validation
+    if len(description) > 300:
+        errors.append("Description cannot be more than 300 characters.")
+
+    return errors
+
+
+def validate_edit_meetup_form(form_data):
+    """
+    A more lenient validation for the edit form.
+    It skips date-in-the-past validation, allowing admins to modify
+    details of meetups that may have already occurred.
+    """
+    errors = []
+
+    sport_type = form_data["sport_type"]
+    capacity = form_data["capacity"]
+    meetup_date = form_data["meetup_date"]
+    meetup_time = form_data["meetup_time"]
+    state = form_data["state"]
+    postcode = form_data["postcode"]
+    venue_name = form_data["venue_name"]
+    address = form_data["address"]
+    description = form_data["description"]
+
+    # Sport type validation
+    if not sport_type:
+        errors.append("Sport type is required.")
+    elif sport_type not in ALLOWED_SPORTS:
+        errors.append("Please select a valid sport type.")
+
+    # Capacity validation
+    if not capacity:
+        errors.append("Participant capacity is required.")
+    elif not capacity.isdigit():
+        errors.append("Participant capacity must be a whole number.")
+    elif int(capacity) < 1:
+        errors.append("Participant capacity must be at least 1.")
+    elif int(capacity) > 100:
+        errors.append("Participant capacity cannot be more than 100.")
+
+    # Location validation
+    if not state:
+        errors.append("State is required.")
+    if postcode and (not postcode.isdigit() or len(postcode) != 5):
+        errors.append("Postcode must be 5 digits.")
+    if not venue_name or len(venue_name) < 3:
+        errors.append("Venue name must be at least 3 characters.")
+    if not address or len(address) < 5:
+        errors.append("Detailed address must be at least 5 characters.")
+
+    # Description validation
     if len(description) > 300:
         errors.append("Description cannot be more than 300 characters.")
 
@@ -340,7 +381,7 @@ def create_meetup():
         if errors:
             for error in errors:
                 flash(error, "error")
-            return render_template("create_meetup.html", form_data=form_data)
+            return render_template("create_meetup.html", form_data=form_data, sport_options=ALLOWED_SPORTS)
 
         # SCRUM-185: Save created meetup into Firebase Firestore
         meetup_data = {
@@ -370,7 +411,7 @@ def create_meetup():
         flash("Meetup created and saved successfully.", "success")
         return redirect(url_for("active_meetups"))
 
-    return render_template("create_meetup.html", form_data=form_data)
+    return render_template("create_meetup.html", form_data=form_data, sport_options=ALLOWED_SPORTS)
 
 
 @app.route("/active-meetups")
@@ -396,7 +437,6 @@ def active_meetups():
     date_filter = request.args.get("meetup_date", "").strip()
 
     all_meetups = []
-    sport_options = set()
 
     try:
         meetup_docs = db.collection("meetups").where("status", "==", "active").stream()
@@ -411,7 +451,6 @@ def active_meetups():
                 continue
 
             all_meetups.append(meetup)
-            sport_options.add(meetup.get("sport_type", ""))
 
     except Exception as e:
         flash(f"An error occurred while fetching meetups: {e}", "error")
@@ -459,7 +498,7 @@ def active_meetups():
         "active_meetups.html",
         meetups=filtered_meetups,
         filters=filters,
-        sport_options=sorted(list(filter(None, sport_options)))
+        sport_options=ALLOWED_SPORTS
     )
 
 
@@ -690,14 +729,18 @@ def edit_meetup(meetup_id):
 
     if request.method == "POST":
         form_data = get_form_data_from_request()
-        errors = validate_create_meetup_form(form_data)
+        errors = validate_edit_meetup_form(form_data)
 
         if errors:
             for error in errors:
                 flash(error, "error")
-            # Pass the original ID back to the template
-            form_data["id"] = meetup_id
-            return render_template("edit_meetup.html", form_data=form_data)
+            # On validation error, we must repopulate the form with the
+            # original, complete data from Firestore, not just the submitted data.
+            # This prevents fields from appearing blank.
+            original_meetup_data = meetup_doc.to_dict()
+            original_meetup_data["id"] = meetup_id
+            return render_template("edit_meetup.html", form_data=original_meetup_data, meetup=original_meetup_data, sport_options=ALLOWED_SPORTS)
+
 
         # Prepare data for update
         updated_data = {
@@ -722,7 +765,7 @@ def edit_meetup(meetup_id):
     # For GET request, populate form with existing data
     form_data = meetup_doc.to_dict()
     form_data["id"] = meetup_id
-    return render_template("edit_meetup.html", form_data=form_data)
+    return render_template("edit_meetup.html", form_data=form_data, meetup=form_data, sport_options=ALLOWED_SPORTS)
 
 
 @app.route("/meetup/<meetup_id>/delete", methods=["POST"])
