@@ -42,8 +42,8 @@
                     <label for="sport_type">Sport Type <span>*</span></label>
                     <select id="sport_type" name="sport_type" required>
                         <option value="" disabled>Select a sport</option>
-                        {% for sport in allowed_sports %}
-                            <option value="{{ sport }}" {% if form_data.sport_type == sport %}selected{% endif %}>
+                        {% for sport in sport_options %}
+                            <option value="{{ sport }}" {% if sport == form_data.sport_type %}selected{% endif %}>
                                 {{ sport }}
                             </option>
                         {% endfor %}
