@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set fd = form_data|default({}) %}
+
+<section class="page-header">
+    <span class="small-label">Sprint 2 Stage 1</span>
+    <h1>Register Account</h1>
+    <p>
+        Create either a participant or organizer account. The system stores the profile
+        information so the user can view their own profile after registration.
+    </p>
+</section>
+
+<section class="form-card">
+    <form class="modern-form" method="POST" action="{{ url_for('register') }}">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Full Name <span>*</span></label>
+                <input type="text" name="full_name" value="{{ fd.get('full_name', '') }}" placeholder="Example: Chang Kar Xi" required>
+            </div>
+
+            <div class="form-group">
+                <label>Email <span>*</span></label>
+                <input type="email" name="email" value="{{ fd.get('email', '') }}" placeholder="example@email.com" required>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Password <span>*</span></label>
+                <input type="password" name="password" placeholder="Minimum 6 characters" required>
+            </div>
+
+            <div class="form-group">
+                <label>Confirm Password <span>*</span></label>
+                <input type="password" name="confirm_password" placeholder="Re-enter password" required>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Account Role <span>*</span></label>
+                <select name="role" id="roleSelect" required>
+                    <option value="participant" {% if fd.get('role', 'participant') == 'participant' %}selected{% endif %}>Participant</option>
+                    <option value="organizer" {% if fd.get('role') == 'organizer' %}selected{% endif %}>Organizer</option>
+                </select>
+                <small>Participant can join meetups. Organizer can create and manage meetups.</small>
+            </div>
+
+            <div class="form-group">
+                <label>Phone Number</label>
+                <input type="text" name="phone" value="{{ fd.get('phone', '') }}" placeholder="Example: 012-3456789">
+            </div>
+        </div>
+
+        <div id="participantFields">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Sport Interest <span>*</span></label>
+                    <select name="sport_interest">
+                        <option value="">Select sport interest</option>
+                        {% for sport in sport_options %}
+                            <option value="{{ sport }}" {% if fd.get('sport_interest') == sport %}selected{% endif %}>{{ sport }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Skill Level <span>*</span></label>
+                    <select name="skill_level">
+                        <option value="">Select skill level</option>
+                        {% for level in skill_levels %}
+                            <option value="{{ level }}" {% if fd.get('skill_level') == level %}selected{% endif %}>{{ level }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="organizerFields">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Organization Name <span>*</span></label>
+                    <input type="text" name="organization_name" value="{{ fd.get('organization_name', '') }}" placeholder="Example: TAR UMT Sports Club">
+                </div>
+
+                <div class="form-group">
+                    <label>Organizer Experience Years <span>*</span></label>
+                    <input type="number" min="0" name="experience_years" value="{{ fd.get('experience_years', '') }}" placeholder="Example: 2">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Bio</label>
+            <textarea name="bio" rows="4" maxlength="300" placeholder="Write a short introduction. Maximum 300 characters.">{{ fd.get('bio', '') }}</textarea>
+            <small>Maximum 300 characters.</small>
+        </div>
+
+        <div class="form-actions">
+            <a class="btn cancel-btn" href="{{ url_for('index') }}">Cancel</a>
+            <button class="btn primary-btn" type="submit">Register Account</button>
+        </div>
+    </form>
+</section>
+
+<script>
+function updateRoleFields() {
+    const role = document.getElementById("roleSelect").value;
+    const participantFields = document.getElementById("participantFields");
+    const organizerFields = document.getElementById("organizerFields");
+
+    if (role === "participant") {
+        participantFields.style.display = "block";
+        organizerFields.style.display = "none";
+    } else {
+        participantFields.style.display = "none";
+        organizerFields.style.display = "block";
+    }
+}
+
+document.getElementById("roleSelect").addEventListener("change", updateRoleFields);
+updateRoleFields();
+</script>
+
+{% endblock %}
