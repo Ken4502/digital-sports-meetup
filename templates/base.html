@@ -22,6 +22,11 @@
             <a href="{{ url_for('index') }}">Home</a>
             <a href="{{ url_for('register') }}">Register</a>
             <a href="{{ url_for('my_profile') }}">My Profile</a>
+            
+                {% if session.role == "participant" %}
+                    <a href="{{ url_for('participant_profiles') }}">Participants</a>
+                 {% endif %}
+            
             <a href="{{ url_for('create_meetup') }}">Create Meetup</a>
             <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
             {% if session.role == 'admin' %}

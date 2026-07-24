@@ -989,6 +989,170 @@ def delete_meetup(meetup_id):
 
     return redirect(url_for("manage_meetups"))
 
+# =========================================================
+# Sprint 2 Stage 2
+# SCRUM-113: Participant View Other Participants' Profiles
+# =========================================================
+
+def get_demo_other_participants():
+    return [
+        {
+            "user_id": "participant_002",
+            "role": "participant",
+            "full_name": "Sport Member",
+            "state": "Selangor",
+            "sport_interest": "Football",
+            "skill_level": "Intermediate",
+            "status": "active",
+        },
+        {
+            "user_id": "participant_003",
+            "role": "participant",
+            "full_name": "Badminton Player",
+            "state": "Penang",
+            "sport_interest": "Badminton",
+            "skill_level": "Beginner",
+            "status": "active",
+        },
+        {
+            "user_id": "participant_004",
+            "role": "participant",
+            "full_name": "Running Buddy",
+            "state": "Kuala Lumpur",
+            "sport_interest": "Running",
+            "skill_level": "Advanced",
+            "status": "active",
+        },
+    ]
+
+
+@app.route("/participants")
+def participant_profiles():
+    """
+    SCRUM-113:
+    Allow a registered participant to view other participants' profiles.
+    Only public information is shown.
+    """
+
+    current_role = session.get("role")
+    current_user_id = session.get("user_id")
+
+    if current_role != "participant":
+        flash("Only participants can view other participants' profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        demo_participants = get_demo_other_participants()
+        return render_template(
+            "participant_profiles.html",
+            participants=demo_participants,
+            is_demo=True
+        )
+
+    participants = []
+
+    try:
+        users_ref = db.collection("users").where("role", "==", "participant").stream()
+
+        for user_doc in users_ref:
+            participant = user_doc.to_dict()
+            participant["user_id"] = user_doc.id
+
+            # Do not show current user's own profile in the "other participants" list
+            if participant["user_id"] == current_user_id:
+                continue
+
+            # Only show active participant profiles
+            if participant.get("status") != "active":
+                continue
+
+            # Only expose public profile information
+            public_participant = {
+                "user_id": participant.get("user_id", ""),
+                "role": participant.get("role", "participant"),
+                "full_name": participant.get("full_name", ""),
+                "state": participant.get("state", ""),
+                "sport_interest": participant.get("sport_interest", ""),
+                "skill_level": participant.get("skill_level", ""),
+                "status": participant.get("status", "active"),
+            }
+
+            participants.append(public_participant)
+
+    except Exception as e:
+        flash(f"Unable to load participant profiles: {e}", "error")
+
+    return render_template(
+        "participant_profiles.html",
+        participants=participants,
+        is_demo=False
+    )
+
+
+@app.route("/participants/<user_id>")
+def view_participant_profile(user_id):
+    """
+    SCRUM-113:
+    Allow participant to open and view another participant's public profile.
+    """
+
+    current_role = session.get("role")
+    current_user_id = session.get("user_id")
+
+    if current_role != "participant":
+        flash("Only participants can view other participants' profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if user_id == current_user_id:
+        flash("This is your own profile. Redirected to My Profile.", "warning")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        demo_profile = get_demo_other_participants()[0]
+        return render_template(
+            "public_participant_profile.html",
+            profile=demo_profile,
+            is_demo=True
+        )
+
+    try:
+        user_doc = db.collection("users").document(user_id).get()
+
+        if not user_doc.exists:
+            flash("Participant profile not found.", "error")
+            return redirect(url_for("participant_profiles"))
+
+        participant = user_doc.to_dict()
+        participant["user_id"] = user_doc.id
+
+        if participant.get("role") != "participant":
+            flash("This profile is not a participant profile.", "error")
+            return redirect(url_for("participant_profiles"))
+
+        if participant.get("status") != "active":
+            flash("This participant profile is not active.", "error")
+            return redirect(url_for("participant_profiles"))
+
+        # Only show public information
+        public_profile = {
+            "user_id": participant.get("user_id", ""),
+            "role": participant.get("role", "participant"),
+            "full_name": participant.get("full_name", ""),
+            "state": participant.get("state", ""),
+            "sport_interest": participant.get("sport_interest", ""),
+            "skill_level": participant.get("skill_level", ""),
+            "status": participant.get("status", "active"),
+        }
+
+        return render_template(
+            "public_participant_profile.html",
+            profile=public_profile,
+            is_demo=False
+        )
+
+    except Exception as e:
+        flash(f"Unable to load participant profile: {e}", "error")
+        return redirect(url_for("participant_profiles"))
 
 if __name__ == "__main__":
     app.run(debug=True)

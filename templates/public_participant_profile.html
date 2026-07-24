@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="form-card">
+    <h1>Participant Profile</h1>
+    <p class="page-subtitle">
+        View participant sports preference and skill level.
+    </p>
+
+    {% if is_demo %}
+        <div class="alert-box">
+            <p>This is a demo participant profile because Firebase is not connected.</p>
+        </div>
+    {% endif %}
+
+    <div class="profile-card">
+        <h2>{{ profile.full_name }}</h2>
+        <span class="role-badge">{{ profile.role }}</span>
+
+        <div class="profile-grid">
+            <div>
+                <strong>State</strong>
+                <p>{{ profile.state }}</p>
+            </div>
+
+            <div>
+                <strong>Sport Interest</strong>
+                <p>{{ profile.sport_interest }}</p>
+            </div>
+
+            <div>
+                <strong>Skill Level</strong>
+                <p>{{ profile.skill_level }}</p>
+            </div>
+
+            <div>
+                <strong>Status</strong>
+                <p>{{ profile.status }}</p>
+            </div>
+        </div>
+
+        <a class="secondary-btn" href="{{ url_for('participant_profiles') }}">
+            Back to Participants
+        </a>
+    </div>
+</section>
+{% endblock %}
