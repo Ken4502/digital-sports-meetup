@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<a href="{{ url_for('admin_dashboard') }}" class="btn-back">← Back to Dashboard</a>
+
+<h1>Manage User</h1>
+
+<div class="user-detail-card">
+    <p><strong>User ID:</strong> {{ user.user_id }}</p>
+    <p><strong>Full Name:</strong> {{ user.full_name }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Phone:</strong> {{ user.phone }}</p>
+    <p><strong>Status:</strong> {{ user.status }}</p>
+    <p><strong>Created At:</strong> {{ user.created_at }}</p>
+    <p><strong>Updated At:</strong> {{ user.updated_at }}</p>
+
+    <div class="action-buttons">
+    <button type="button" class="btn-edit">Edit</button>
+
+    <form action="{{ url_for('toggle_user_status', user_id=user.id) }}" method="POST" style="display:inline;">
+        {% if user.status == 'active' %}
+            <button type="submit" class="btn-disable">Disable</button>
+        {% else %}
+            <button type="submit" class="btn-enable">Enable</button>
+        {% endif %}
+    </form>
+
+    <button type="button" class="btn-delete">Delete</button>
+</div>
+</div>
+
+<h2>Upcoming Meetups</h2>
+{% if upcoming_meetups %}
+<table class="user-table">
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th>Sport</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Location</th>
+            <th>Joined / Capacity</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for meetup in upcoming_meetups %}
+        <tr>
+            <td>{{ meetup.title }}</td>
+            <td>{{ meetup.sport_type }}</td>
+            <td>{{ meetup.meetup_date }}</td>
+            <td>{{ meetup.meetup_time }}</td>
+            <td>{{ meetup.location }}</td>
+            <td>{{ meetup.joined_count }} / {{ meetup.capacity }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No upcoming meetups.</p>
+{% endif %}
+
+<h2>Past Meetups</h2>
+{% if past_meetups %}
+<table class="user-table">
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th>Sport</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Location</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for meetup in past_meetups %}
+        <tr>
+            <td>{{ meetup.title }}</td>
+            <td>{{ meetup.sport_type }}</td>
+            <td>{{ meetup.meetup_date }}</td>
+            <td>{{ meetup.meetup_time }}</td>
+            <td>{{ meetup.location }}</td>
+            <td>{{ meetup.status }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No past meetups.</p>
+{% endif %}
+{% endblock %}
