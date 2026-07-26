@@ -3,7 +3,6 @@
 {% block content %}
 <h1>Admin Dashboard</h1>
 
-<h2>User Management</h2>
 <table class="user-table">
     <thead>
         <tr>
@@ -27,10 +26,8 @@
             <td>{{ user.status }}</td>
             <td>{{ user.created_at }}</td>
             <td>{{ user.updated_at }}</td>
-            <td class="action-buttons">
-                <button type="button" class="btn-edit">Edit</button>
-                <button type="button" class="btn-disable">Disable</button>
-                <button type="button" class="btn-delete">Delete</button>
+            <td>
+                <a href="{{ url_for('manage_user', user_id=user.id) }}" class="btn-manage">Manage</a>
             </td>
         </tr>
         {% endfor %}
