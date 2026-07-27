@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="page-header">
+    <span class="small-label">Sprint 2 Stage 1</span>
+    <h1>My Profile</h1>
+    <p>View the registered account information for the current user.</p>
+</section>
+
+{% if not user %}
+    <section class="empty-state">
+        <h2>Profile cannot be loaded</h2>
+        <p>The profile is unavailable because Firebase is disconnected or the user account does not exist.</p>
+        <a class="btn primary-btn" href="{{ url_for('register') }}">Register Account</a>
+    </section>
+{% else %}
+    <section class="detail-main-card" style="border-radius: 32px; padding: 34px;">
+        <div class="small-label">{{ user.role|capitalize }} Profile</div>
+        <h1 style="margin-top: 18px;">{{ user.full_name }}</h1>
+        <p style="color: var(--muted-text); line-height: 1.8;">
+            {{ user.bio if user.bio else "No bio added yet." }}
+        </p>
+
+        <div class="dashboard-grid" style="margin-top: 26px;">
+            <div class="dashboard-card">
+                <div class="card-icon blue">@</div>
+                <h3>Email</h3>
+                <p>{{ user.email }}</p>
+            </div>
+
+            <div class="dashboard-card">
+                <div class="card-icon green">☎</div>
+                <h3>Phone</h3>
+                <p>{{ user.phone if user.phone else "Not provided" }}</p>
+            </div>
+
+            <div class="dashboard-card">
+                <div class="card-icon orange">✓</div>
+                <h3>Status</h3>
+                <p>{{ user.status|capitalize }}</p>
+            </div>
+        </div>
+
+        {% if user.role == "participant" %}
+            <div class="dashboard-grid" style="margin-top: 24px;">
+                <div class="dashboard-card">
+                    <div class="card-icon green">🏅</div>
+                    <h3>Sport Interest</h3>
+                    <p>{{ user.sport_interest }}</p>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-icon blue">★</div>
+                    <h3>Skill Level</h3>
+                    <p>{{ user.skill_level }}</p>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-icon orange">ID</div>
+                    <h3>User ID</h3>
+                    <p>{{ user.id }}</p>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if user.role == "organizer" %}
+            <div class="dashboard-grid" style="margin-top: 24px;">
+                <div class="dashboard-card">
+                    <div class="card-icon green">🏢</div>
+                    <h3>Organization</h3>
+                    <p>{{ user.organization_name }}</p>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-icon blue">📅</div>
+                    <h3>Experience</h3>
+                    <p>{{ user.experience_years }} year(s)</p>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-icon orange">ID</div>
+                    <h3>User ID</h3>
+                    <p>{{ user.id }}</p>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+{% endif %}
+
+{% endblock %}

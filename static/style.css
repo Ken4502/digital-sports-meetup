@@ -1441,3 +1441,45 @@ body {
 .input-valid {
     border-color: var(--primary) !important;
 }
+
+.profile-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 22px;
+    margin-top: 24px;
+}
+
+.alert-box {
+    background: #fde3cf;
+    border-left: 5px solid #dd7e32;
+    padding: 14px 18px;
+    border-radius: 12px;
+    margin: 18px 0;
+}
+
+.role-badge {
+    display: inline-block;
+    background: #dde6ef;
+    color: #2b4c7e;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: capitalize;
+    margin-bottom: 12px;
+}
+
+.secondary-btn {
+    display: inline-block;
+    margin-top: 18px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    background: #dde6ef;
+    color: #2b4c7e;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.secondary-btn:hover {
+    background: #cbd8e6;
+}
