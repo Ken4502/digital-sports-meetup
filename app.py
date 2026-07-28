@@ -4,7 +4,8 @@ from firebase_admin import credentials, firestore as firebase_firestore
 from google.cloud import firestore
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from functools import wraps
+import re 
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"
@@ -268,6 +269,233 @@ def validate_create_meetup_form(form_data):
 
     return errors
 
+# =========================================================
+# Sprint 2 Stage 1 - Registration and Own Profile
+# Paste these helpers below your Create Meetup helper functions.
+# Also add this import at the top of app.py:
+# from werkzeug.security import generate_password_hash
+# import re
+# =========================================================
+
+REGISTER_ROLES = ["participant", "organizer"]
+SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced"]
+
+
+def empty_register_form():
+    return {
+        "full_name": "",
+        "email": "",
+        "password": "",
+        "confirm_password": "",
+        "role": "participant",
+        "phone": "",
+        "sport_interest": "",
+        "skill_level": "",
+        "organization_name": "",
+        "experience_years": "",
+        "bio": "",
+    }
+
+
+def get_register_form_from_request():
+    return {
+        "full_name": request.form.get("full_name", "").strip(),
+        "email": request.form.get("email", "").strip().lower(),
+        "password": request.form.get("password", ""),
+        "confirm_password": request.form.get("confirm_password", ""),
+        "role": request.form.get("role", "participant").strip(),
+        "phone": request.form.get("phone", "").strip(),
+        "sport_interest": request.form.get("sport_interest", "").strip(),
+        "skill_level": request.form.get("skill_level", "").strip(),
+        "organization_name": request.form.get("organization_name", "").strip(),
+        "experience_years": request.form.get("experience_years", "").strip(),
+        "bio": request.form.get("bio", "").strip(),
+    }
+
+
+def is_valid_email(email):
+    return re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) is not None
+
+
+def build_user_id(role, email):
+    # Example: participant_john_20991231235959
+    email_name = email.split("@")[0]
+    clean_email_name = re.sub(r"[^a-zA-Z0-9]+", "_", email_name).strip("_")
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    return f"{role}_{clean_email_name}_{timestamp}"
+
+
+def email_already_registered(email):
+    if db is None:
+        return False
+
+    existing_users = db.collection("users").where("email", "==", email).limit(1).stream()
+    return any(True for _ in existing_users)
+
+
+def validate_register_form(form_data):
+    errors = []
+
+    full_name = form_data["full_name"]
+    email = form_data["email"]
+    password = form_data["password"]
+    confirm_password = form_data["confirm_password"]
+    role = form_data["role"]
+    phone = form_data["phone"]
+    sport_interest = form_data["sport_interest"]
+    skill_level = form_data["skill_level"]
+    organization_name = form_data["organization_name"]
+    experience_years = form_data["experience_years"]
+    bio = form_data["bio"]
+
+    if not full_name:
+        errors.append("Full name is required.")
+    elif len(full_name) < 3:
+        errors.append("Full name must be at least 3 characters.")
+
+    if not email:
+        errors.append("Email is required.")
+    elif not is_valid_email(email):
+        errors.append("Please enter a valid email address.")
+
+    if not password:
+        errors.append("Password is required.")
+    elif len(password) < 6:
+        errors.append("Password must be at least 6 characters.")
+
+    if password != confirm_password:
+        errors.append("Password and confirm password do not match.")
+
+    if role not in REGISTER_ROLES:
+        errors.append("Please select a valid account role.")
+
+    if phone and not phone.replace("-", "").replace(" ", "").isdigit():
+        errors.append("Phone number can only contain numbers, spaces, or dashes.")
+
+    if role == "participant":
+        if not sport_interest:
+            errors.append("Sport interest is required for participant account.")
+        elif sport_interest not in ALLOWED_SPORTS:
+            errors.append("Please select a valid sport interest.")
+
+        if not skill_level:
+            errors.append("Skill level is required for participant account.")
+        elif skill_level not in SKILL_LEVELS:
+            errors.append("Please select a valid skill level.")
+
+    if role == "organizer":
+        if not organization_name:
+            errors.append("Organization name is required for organizer account.")
+        elif len(organization_name) < 3:
+            errors.append("Organization name must be at least 3 characters.")
+
+        if not experience_years:
+            errors.append("Organizer experience years is required.")
+        elif not experience_years.isdigit():
+            errors.append("Organizer experience years must be a whole number.")
+        elif int(experience_years) < 0:
+            errors.append("Organizer experience years cannot be negative.")
+
+    if len(bio) > 300:
+        errors.append("Bio cannot be more than 300 characters.")
+
+    return errors
+
+
+# =========================================================
+# Paste these routes below index() or below create_meetup().
+# =========================================================
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if not require_firebase():
+        return render_template(
+            "register.html",
+            form_data=empty_register_form(),
+            sport_options=ALLOWED_SPORTS,
+            skill_levels=SKILL_LEVELS,
+        )
+
+    form_data = empty_register_form()
+
+    if request.method == "POST":
+        form_data = get_register_form_from_request()
+        errors = validate_register_form(form_data)
+
+        if form_data.get("email") and email_already_registered(form_data["email"]):
+            errors.append("This email is already registered.")
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            # Clear password fields before returning to page.
+            form_data["password"] = ""
+            form_data["confirm_password"] = ""
+            return render_template(
+                "register.html",
+                form_data=form_data,
+                sport_options=ALLOWED_SPORTS,
+                skill_levels=SKILL_LEVELS,
+            )
+
+        user_role = form_data["role"]
+        user_id = build_user_id(user_role, form_data["email"])
+
+        user_data = {
+            "user_id": user_id,
+            "full_name": form_data["full_name"],
+            "email": form_data["email"],
+            "password_hash": generate_password_hash(form_data["password"]),
+            "role": user_role,
+            "phone": form_data["phone"],
+            "sport_interest": form_data["sport_interest"],
+            "skill_level": form_data["skill_level"],
+            "organization_name": form_data["organization_name"],
+            "experience_years": int(form_data["experience_years"]) if form_data["experience_years"] else 0,
+            "bio": form_data["bio"],
+            "status": "active",
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+
+        db.collection("users").document(user_id).set(user_data)
+
+        session["user_id"] = user_id
+        session["role"] = user_role
+
+        flash("Account registered successfully.", "success")
+        return redirect(url_for("my_profile"))
+
+    return render_template(
+        "register.html",
+        form_data=form_data,
+        sport_options=ALLOWED_SPORTS,
+        skill_levels=SKILL_LEVELS,
+    )
+
+
+@app.route("/profile")
+def my_profile():
+    if not require_firebase():
+        return render_template("profile.html", user=None, is_own_profile=True)
+
+    user_id = session.get("user_id")
+
+    if not user_id:
+        flash("Please register or log in first.", "error")
+        return redirect(url_for("register"))
+
+    user_doc = db.collection("users").document(user_id).get()
+
+    if not user_doc.exists:
+        flash("Profile not found. Please register an account first.", "error")
+        return redirect(url_for("register"))
+
+    user = user_doc.to_dict()
+    user["id"] = user_doc.id
+
+    return render_template("profile.html", user=user, is_own_profile=True)
+
 
 def validate_edit_meetup_form(form_data):
     """
@@ -321,128 +549,54 @@ def validate_edit_meetup_form(form_data):
 
 
 # =========================================================
-# Demo User Session
-# =========================================================
-
-@app.before_request
-def set_demo_user():
-    if "user_id" not in session:
-        session["user_id"] = "participant_001"
-        session["role"] = "participant"
-
-def admin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if session.get("role") != "admin":
-            abort(403)
-        return f(*args, **kwargs)
-    return decorated
-
-@app.route("/switch/<role>")
-def switch_user(role):
-    if role == "organizer":
-        session["user_id"] = "organizer_001"
-        session["role"] = "organizer"
-    elif role == "participant":
-        session["user_id"] = "participant_001"
-        session["role"] = "participant"
-    elif role == "admin":
-        session["user_id"] = "admin_001"
-        session["role"] = "admin"
-    else:
-        abort(400)
-
-    flash(f"Switched to {role} mode.", "success")
-    return redirect(url_for("index"))
-
-@app.route("/admin")
-@admin_required
-def admin_dashboard():
-    users_ref = db.collection("users")
-    docs = users_ref.stream()
-
-    users = []
-    for doc in docs:
-        user_data = doc.to_dict()
-        user_data["id"] = doc.id
-
-        if user_data.get("created_at"):
-            user_data["created_at"] = user_data["created_at"].strftime("%d/%m/%y")
-        if user_data.get("updated_at"):
-            user_data["updated_at"] = user_data["updated_at"].strftime("%d/%m/%y")
-
-        users.append(user_data)
-
-    return render_template("admin_dashboard.html", users=users)
-
-@app.route("/admin/user/<user_id>")
-@admin_required
-def manage_user(user_id):
-    doc_ref = db.collection("users").document(user_id)
-    doc = doc_ref.get()
-
-    if not doc.exists:
-        abort(404)
-
-    user = doc.to_dict()
-    user["id"] = doc.id
-
-    if user.get("created_at"):
-        user["created_at"] = user["created_at"].strftime("%d/%m/%y")
-    if user.get("updated_at"):
-        user["updated_at"] = user["updated_at"].strftime("%d/%m/%y")
-
-    # Fetch meetups this user organized
-    meetups_ref = db.collection("meetups").where("organizer_id", "==", user.get("user_id"))
-    meetup_docs = meetups_ref.stream()
-
-    meetups = []
-    for m in meetup_docs:
-        meetup_data = m.to_dict()
-        meetup_data["id"] = m.id
-        meetups.append(meetup_data)
-
-    # Split into past vs present based on status
-    upcoming_meetups = [m for m in meetups if m.get("status") == "active"]
-    past_meetups = [m for m in meetups if m.get("status") == "past"]
-
-    return render_template(
-        "manage_user.html",
-        user=user,
-        upcoming_meetups=upcoming_meetups,
-        past_meetups=past_meetups
-    )
-
-@app.route("/admin/user/<user_id>/toggle-status", methods=["POST"])
-@admin_required
-def toggle_user_status(user_id):
-    doc_ref = db.collection("users").document(user_id)
-    doc = doc_ref.get()
-
-    if not doc.exists:
-        abort(404)
-
-    current_status = doc.to_dict().get("status")
-    new_status = "disabled" if current_status == "active" else "active"
-
-    doc_ref.update({"status": new_status})
-
-    flash(f"User has been {new_status}.", "success")
-    return redirect(url_for("manage_user", user_id=user_id))
-
-# Route alias for the AthleLink UI version if needed
-@app.route("/set-role/<role>")
-def set_role(role):
-    return switch_user(role)
-
-
-# =========================================================
 # Pages
 # =========================================================
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        if not require_firebase():
+            return redirect(url_for("login"))
+
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        if not email or not password:
+            flash("Email and password are required.", "error")
+            return redirect(url_for("login"))
+
+        users_ref = db.collection("users").where("email", "==", email).limit(1).stream()
+        user_list = list(users_ref)
+
+        if not user_list:
+            flash("Invalid credentials.", "error")
+            return redirect(url_for("login"))
+
+        user_doc = user_list[0]
+        user = user_doc.to_dict()
+
+        if not check_password_hash(user.get("password_hash", ""), password):
+            flash("Invalid credentials.", "error")
+            return redirect(url_for("login"))
+
+        session["user_id"] = user_doc.id
+        session["role"] = user.get("role")
+        flash("Logged in successfully.", "success")
+        return redirect(url_for("index"))
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out.", "success")
+    return redirect(url_for("index"))
 
 
 @app.route("/create-meetup", methods=["GET", "POST"])
@@ -885,6 +1039,248 @@ def delete_meetup(meetup_id):
 
     return redirect(url_for("manage_meetups"))
 
+# =========================================================
+# Admin Routes
+# =========================================================
+
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return render_template("admin_dashboard.html", users=[])
+
+    all_users = []
+    try:
+        user_docs = db.collection("users").stream()
+        for doc in user_docs:
+            user = doc.to_dict()
+            # Exclude admins from the list
+            if user.get("role") != "admin":
+                user["id"] = doc.id
+                all_users.append(user)
+    except Exception as e:
+        flash(f"An error occurred while fetching users: {e}", "error")
+
+    return render_template("admin_dashboard.html", users=all_users)
+
+
+@app.route("/admin/manage-user/<user_id>")
+def manage_user(user_id):
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("admin_dashboard"))
+
+    user_doc = db.collection("users").document(user_id).get()
+    if not user_doc.exists:
+        flash("User not found.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    user = user_doc.to_dict()
+    user["id"] = user_doc.id
+
+    # Prevent editing of admin accounts
+    if user.get("role") == "admin":
+        flash("Admin accounts cannot be managed from this page.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    return render_template("manage_user.html", user=user, upcoming_meetups=[], past_meetups=[])
+
+
+@app.route("/admin/toggle-user-status/<user_id>", methods=["POST"])
+def toggle_user_status(user_id):
+    if session.get("role") != "admin":
+        flash("You do not have permission to perform this action.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("admin_dashboard"))
+
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get()
+    if user_doc.exists:
+        user_data = user_doc.to_dict()
+
+        if user_data.get("role") == "admin":
+            flash("Admin account status cannot be changed.", "error")
+            return redirect(url_for("admin_dashboard"))
+
+        current_status = user_data.get("status", "active")
+        new_status = "disabled" if current_status == "active" else "active"
+        user_ref.update({"status": new_status, "updated_at": firestore.SERVER_TIMESTAMP})
+        flash(f"User status changed to {new_status}.", "success")
+
+    return redirect(url_for("manage_user", user_id=user_id))
+
+# =========================================================
+# Sprint 2 Stage 2
+# SCRUM-113: Participant View Other Participants' Profiles
+# =========================================================
+
+def get_demo_other_participants():
+    return [
+        {
+            "user_id": "participant_002",
+            "role": "participant",
+            "full_name": "Sport Member",
+            "state": "Selangor",
+            "sport_interest": "Football",
+            "skill_level": "Intermediate",
+            "status": "active",
+        },
+        {
+            "user_id": "participant_003",
+            "role": "participant",
+            "full_name": "Badminton Player",
+            "state": "Penang",
+            "sport_interest": "Badminton",
+            "skill_level": "Beginner",
+            "status": "active",
+        },
+        {
+            "user_id": "participant_004",
+            "role": "participant",
+            "full_name": "Running Buddy",
+            "state": "Kuala Lumpur",
+            "sport_interest": "Running",
+            "skill_level": "Advanced",
+            "status": "active",
+        },
+    ]
+
+
+@app.route("/participants")
+def participant_profiles():
+    """
+    SCRUM-113:
+    Allow a registered participant to view other participants' profiles.
+    Only public information is shown.
+    """
+
+    current_role = session.get("role")
+    current_user_id = session.get("user_id")
+
+    if current_role != "participant":
+        flash("Only participants can view other participants' profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        demo_participants = get_demo_other_participants()
+        return render_template(
+            "participant_profiles.html",
+            participants=demo_participants,
+            is_demo=True
+        )
+
+    participants = []
+
+    try:
+        users_ref = db.collection("users").where("role", "==", "participant").stream()
+
+        for user_doc in users_ref:
+            participant = user_doc.to_dict()
+            participant["user_id"] = user_doc.id
+
+            # Do not show current user's own profile in the "other participants" list
+            if participant["user_id"] == current_user_id:
+                continue
+
+            # Only show active participant profiles
+            if participant.get("status") != "active":
+                continue
+
+            # Only expose public profile information
+            public_participant = {
+                "user_id": participant.get("user_id", ""),
+                "role": participant.get("role", "participant"),
+                "full_name": participant.get("full_name", ""),
+                "state": participant.get("state", ""),
+                "sport_interest": participant.get("sport_interest", ""),
+                "skill_level": participant.get("skill_level", ""),
+                "status": participant.get("status", "active"),
+            }
+
+            participants.append(public_participant)
+
+    except Exception as e:
+        flash(f"Unable to load participant profiles: {e}", "error")
+
+    return render_template(
+        "participant_profiles.html",
+        participants=participants,
+        is_demo=False
+    )
+
+
+@app.route("/participants/<user_id>")
+def view_participant_profile(user_id):
+    """
+    SCRUM-113:
+    Allow participant to open and view another participant's public profile.
+    """
+
+    current_role = session.get("role")
+    current_user_id = session.get("user_id")
+
+    if current_role != "participant":
+        flash("Only participants can view other participants' profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if user_id == current_user_id:
+        flash("This is your own profile. Redirected to My Profile.", "warning")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        demo_profile = get_demo_other_participants()[0]
+        return render_template(
+            "public_participant_profile.html",
+            profile=demo_profile,
+            is_demo=True
+        )
+
+    try:
+        user_doc = db.collection("users").document(user_id).get()
+
+        if not user_doc.exists:
+            flash("Participant profile not found.", "error")
+            return redirect(url_for("participant_profiles"))
+
+        participant = user_doc.to_dict()
+        participant["user_id"] = user_doc.id
+
+        if participant.get("role") != "participant":
+            flash("This profile is not a participant profile.", "error")
+            return redirect(url_for("participant_profiles"))
+
+        if participant.get("status") != "active":
+            flash("This participant profile is not active.", "error")
+            return redirect(url_for("participant_profiles"))
+
+        # Only show public information
+        public_profile = {
+            "user_id": participant.get("user_id", ""),
+            "role": participant.get("role", "participant"),
+            "full_name": participant.get("full_name", ""),
+            "state": participant.get("state", ""),
+            "sport_interest": participant.get("sport_interest", ""),
+            "skill_level": participant.get("skill_level", ""),
+            "status": participant.get("status", "active"),
+        }
+
+        return render_template(
+            "public_participant_profile.html",
+            profile=public_profile,
+            is_demo=False
+        )
+
+    except Exception as e:
+        flash(f"Unable to load participant profile: {e}", "error")
+        return redirect(url_for("participant_profiles"))
 
 if __name__ == "__main__":
     app.run(debug=True)

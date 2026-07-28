@@ -19,29 +19,39 @@
         </div>
 
         <div class="nav-links">
-            <a href="{{ url_for('index') }}">Home</a>
-            <a href="{{ url_for('create_meetup') }}">Create Meetup</a>
-            <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
-            {% if session.role == 'admin' %}
-                <a href="{{ url_for('manage_meetups') }}">Manage Meetups</a>
-                <a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a>
+            {% if session.user_id %}
+                <a href="{{ url_for('index') }}">Home</a>
+                
+                {% if session.role == 'participant' %}
+                    <a href="{{ url_for('my_profile') }}">My Profile</a>
+                    <a href="{{ url_for('participant_profiles') }}">Participants</a>
+                    <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
+                {% elif session.role == 'organizer' %}
+                    <a href="{{ url_for('my_profile') }}">My Profile</a>
+                    <a href="{{ url_for('create_meetup') }}">Create Meetup</a>
+                    <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
+                {% elif session.role == 'admin' %}
+                    <a href="{{ url_for('admin_dashboard') }}">Manage Users</a>
+                    <a href="{{ url_for('manage_meetups') }}">Manage Meetups</a>
+                {% endif %}
+
+                <a href="{{ url_for('logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Login</a>
+                <a href="{{ url_for('register') }}">Register</a>
             {% endif %}
         </div>
     </nav>
 
-    <section class="user-status-bar">
-        <div>
-            Logged in as 
-            <strong>{{ session['user_id'] }}</strong>
-            <span class="role-badge">{{ session['role'] }}</span>
-        </div>
-
-        <div class="switch-links">
-            <a href="{{ url_for('switch_user', role='organizer') }}">Organizer Mode</a>
-            <a href="{{ url_for('switch_user', role='participant') }}">Participant Mode</a>
-            <a href="{{ url_for('switch_user', role='admin') }}">Admin Mode</a>
-        </div>
-    </section>
+    {% if session.user_id %}
+        <section class="user-status-bar">
+            <div>
+                Logged in as 
+                <strong>{{ session['user_id'] }}</strong>
+                <span class="role-badge">{{ session['role'] }}</span>
+            </div>
+        </section>
+    {% endif %}
 
     <main class="page-wrapper">
         {% with messages = get_flashed_messages() %}
