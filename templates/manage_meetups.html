@@ -11,9 +11,20 @@
     </p>
 </div>
 
+<div class="admin-search-bar" style="margin-bottom: 16px;">
+    <input
+        type="text"
+        id="meetupSearchInput"
+        class="search-input"
+        placeholder="Search by sport or location..."
+        onkeyup="filterMeetupTable()"
+        style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color, #ccc); box-sizing: border-box;"
+    >
+</div>
+
 <div class="admin-table-card">
     {% if meetups %}
-        <table class="admin-table">
+        <table class="admin-table" id="meetupTable">
             <thead>
                 <tr>
                     <th>Sport</th>
@@ -26,7 +37,7 @@
             </thead>
             <tbody>
                 {% for meetup in meetups %}
-                    <tr>
+                    <tr data-sport="{{ meetup.sport_type | lower }}" data-location="{{ meetup.location | lower }}">
                         <td>
                             <strong>{{ meetup.sport_type }}</strong>
                             <br>
@@ -64,6 +75,9 @@
                 {% endfor %}
             </tbody>
         </table>
+        <p id="noMeetupResults" style="display:none; padding: 16px; text-align: center; color: var(--text-muted, #888);">
+            No meetups match your search.
+        </p>
     {% else %}
         <div class="empty-state" style="box-shadow: none; border: none;">
             <div class="empty-icon">🏀</div>
@@ -73,9 +87,6 @@
     {% endif %}
 </div>
 
-{% endblock %}
-
-{% block scripts %}
 <style>
     .status-badge.past {
         background: var(--warning-bg);
@@ -96,4 +107,25 @@
         border: 1px solid var(--danger-text);
     }
 </style>
+<script>
+function filterMeetupTable() {
+    const query = document.getElementById('meetupSearchInput').value.trim().toLowerCase();
+    const rows = document.querySelectorAll('#meetupTable tbody tr');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const sport = row.dataset.sport || '';
+        const location = row.dataset.location || '';
+        const matches = sport.includes(query) || location.includes(query);
+        row.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+    });
+
+    const noResults = document.getElementById('noMeetupResults');
+    if (noResults) {
+        noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+}
+</script>
+
 {% endblock %}

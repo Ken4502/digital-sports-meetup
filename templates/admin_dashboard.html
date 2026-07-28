@@ -10,9 +10,20 @@
     </p>
 </div>
 
+<div class="admin-search-bar" style="margin-bottom: 16px;">
+    <input
+        type="text"
+        id="userSearchInput"
+        class="search-input"
+        placeholder="Search by name or email..."
+        onkeyup="filterUserTable()"
+        style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color, #ccc); box-sizing: border-box;"
+    >
+</div>
+
 <div class="admin-table-card">
     {% if users %}
-        <table class="admin-table">
+        <table class="admin-table" id="userTable">
             <thead>
                 <tr>
                     <th>User</th>
@@ -24,7 +35,7 @@
             </thead>
             <tbody>
                 {% for user in users %}
-                    <tr>
+                    <tr data-name="{{ user.full_name | lower }}" data-email="{{ user.email | lower }}">
                         <td>
                             <strong>{{ user.full_name }}</strong>
                             <br>
@@ -48,6 +59,9 @@
                 {% endfor %}
             </tbody>
         </table>
+        <p id="noUserResults" style="display:none; padding: 16px; text-align: center; color: var(--text-muted, #888);">
+            No users match your search.
+        </p>
     {% else %}
         <div class="empty-state" style="box-shadow: none; border: none;">
             <div class="empty-icon">👥</div>
@@ -56,4 +70,25 @@
         </div>
     {% endif %}
 </div>
+
+<script>
+function filterUserTable() {
+    const query = document.getElementById('userSearchInput').value.trim().toLowerCase();
+    const rows = document.querySelectorAll('#userTable tbody tr');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const name = row.dataset.name || '';
+        const email = row.dataset.email || '';
+        const matches = name.includes(query) || email.includes(query);
+        row.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+    });
+
+    const noResults = document.getElementById('noUserResults');
+    if (noResults) {
+        noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+}
+</script>
 {% endblock %}
