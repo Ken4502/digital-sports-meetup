@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="page-header">
+    <span class="small-label">Account Access</span>
+    <h1>Login</h1>
+    <p>
+        Enter your credentials to access your dashboard and manage your meetups.
+    </p>
+</section>
+
+<section class="form-card">
+    <form class="modern-form" method="POST" action="{{ url_for('login') }}">
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" placeholder="example@email.com" required>
+        </div>
+
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" name="password" required>
+        </div>
+
+        <div class="form-actions" style="margin-top: 24px;">
+            <a class="btn cancel-btn" href="{{ url_for('index') }}">Cancel</a>
+            <button class="btn primary-btn" type="submit">Login</button>
+        </div>
+    </form>
+</section>
+
+{% endblock %}

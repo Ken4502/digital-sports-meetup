@@ -4,8 +4,8 @@ from firebase_admin import credentials, firestore as firebase_firestore
 from google.cloud import firestore
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-import re
-from werkzeug.security import generate_password_hash
+import re 
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"
@@ -549,47 +549,54 @@ def validate_edit_meetup_form(form_data):
 
 
 # =========================================================
-# Demo User Session
-# =========================================================
-
-@app.before_request
-def set_demo_user():
-    if "user_id" not in session:
-        session["user_id"] = "participant_001"
-        session["role"] = "participant"
-
-
-@app.route("/switch/<role>")
-def switch_user(role):
-    if role == "organizer":
-        session["user_id"] = "organizer_001"
-        session["role"] = "organizer"
-    elif role == "participant":
-        session["user_id"] = "participant_001"
-        session["role"] = "participant"
-    elif role == "admin":
-        session["user_id"] = "admin_001"
-        session["role"] = "admin"
-    else:
-        abort(400)
-
-    flash(f"Switched to {role} mode.", "success")
-    return redirect(url_for("index"))
-
-
-# Route alias for the AthleLink UI version if needed
-@app.route("/set-role/<role>")
-def set_role(role):
-    return switch_user(role)
-
-
-# =========================================================
 # Pages
 # =========================================================
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        if not require_firebase():
+            return redirect(url_for("login"))
+
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        if not email or not password:
+            flash("Email and password are required.", "error")
+            return redirect(url_for("login"))
+
+        users_ref = db.collection("users").where("email", "==", email).limit(1).stream()
+        user_list = list(users_ref)
+
+        if not user_list:
+            flash("Invalid credentials.", "error")
+            return redirect(url_for("login"))
+
+        user_doc = user_list[0]
+        user = user_doc.to_dict()
+
+        if not check_password_hash(user.get("password_hash", ""), password):
+            flash("Invalid credentials.", "error")
+            return redirect(url_for("login"))
+
+        session["user_id"] = user_doc.id
+        session["role"] = user.get("role")
+        flash("Logged in successfully.", "success")
+        return redirect(url_for("index"))
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out.", "success")
+    return redirect(url_for("index"))
 
 
 @app.route("/create-meetup", methods=["GET", "POST"])
@@ -1031,6 +1038,84 @@ def delete_meetup(meetup_id):
         flash(f"An error occurred while deleting the meetup: {e}", "error")
 
     return redirect(url_for("manage_meetups"))
+
+# =========================================================
+# Admin Routes
+# =========================================================
+
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return render_template("admin_dashboard.html", users=[])
+
+    all_users = []
+    try:
+        user_docs = db.collection("users").stream()
+        for doc in user_docs:
+            user = doc.to_dict()
+            # Exclude admins from the list
+            if user.get("role") != "admin":
+                user["id"] = doc.id
+                all_users.append(user)
+    except Exception as e:
+        flash(f"An error occurred while fetching users: {e}", "error")
+
+    return render_template("admin_dashboard.html", users=all_users)
+
+
+@app.route("/admin/manage-user/<user_id>")
+def manage_user(user_id):
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("admin_dashboard"))
+
+    user_doc = db.collection("users").document(user_id).get()
+    if not user_doc.exists:
+        flash("User not found.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    user = user_doc.to_dict()
+    user["id"] = user_doc.id
+
+    # Prevent editing of admin accounts
+    if user.get("role") == "admin":
+        flash("Admin accounts cannot be managed from this page.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    return render_template("manage_user.html", user=user, upcoming_meetups=[], past_meetups=[])
+
+
+@app.route("/admin/toggle-user-status/<user_id>", methods=["POST"])
+def toggle_user_status(user_id):
+    if session.get("role") != "admin":
+        flash("You do not have permission to perform this action.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("admin_dashboard"))
+
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get()
+    if user_doc.exists:
+        user_data = user_doc.to_dict()
+
+        if user_data.get("role") == "admin":
+            flash("Admin account status cannot be changed.", "error")
+            return redirect(url_for("admin_dashboard"))
+
+        current_status = user_data.get("status", "active")
+        new_status = "disabled" if current_status == "active" else "active"
+        user_ref.update({"status": new_status, "updated_at": firestore.SERVER_TIMESTAMP})
+        flash(f"User status changed to {new_status}.", "success")
+
+    return redirect(url_for("manage_user", user_id=user_id))
 
 # =========================================================
 # Sprint 2 Stage 2
