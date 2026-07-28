@@ -4,6 +4,7 @@ from firebase_admin import credentials, firestore as firebase_firestore
 from google.cloud import firestore
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"
@@ -329,6 +330,13 @@ def set_demo_user():
         session["user_id"] = "participant_001"
         session["role"] = "participant"
 
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get("role") != "admin":
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated
 
 @app.route("/switch/<role>")
 def switch_user(role):
@@ -347,6 +355,80 @@ def switch_user(role):
     flash(f"Switched to {role} mode.", "success")
     return redirect(url_for("index"))
 
+@app.route("/admin")
+@admin_required
+def admin_dashboard():
+    users_ref = db.collection("users")
+    docs = users_ref.stream()
+
+    users = []
+    for doc in docs:
+        user_data = doc.to_dict()
+        user_data["id"] = doc.id
+
+        if user_data.get("created_at"):
+            user_data["created_at"] = user_data["created_at"].strftime("%d/%m/%y")
+        if user_data.get("updated_at"):
+            user_data["updated_at"] = user_data["updated_at"].strftime("%d/%m/%y")
+
+        users.append(user_data)
+
+    return render_template("admin_dashboard.html", users=users)
+
+@app.route("/admin/user/<user_id>")
+@admin_required
+def manage_user(user_id):
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+
+    if not doc.exists:
+        abort(404)
+
+    user = doc.to_dict()
+    user["id"] = doc.id
+
+    if user.get("created_at"):
+        user["created_at"] = user["created_at"].strftime("%d/%m/%y")
+    if user.get("updated_at"):
+        user["updated_at"] = user["updated_at"].strftime("%d/%m/%y")
+
+    # Fetch meetups this user organized
+    meetups_ref = db.collection("meetups").where("organizer_id", "==", user.get("user_id"))
+    meetup_docs = meetups_ref.stream()
+
+    meetups = []
+    for m in meetup_docs:
+        meetup_data = m.to_dict()
+        meetup_data["id"] = m.id
+        meetups.append(meetup_data)
+
+    # Split into past vs present based on status
+    upcoming_meetups = [m for m in meetups if m.get("status") == "active"]
+    past_meetups = [m for m in meetups if m.get("status") == "past"]
+
+    return render_template(
+        "manage_user.html",
+        user=user,
+        upcoming_meetups=upcoming_meetups,
+        past_meetups=past_meetups
+    )
+
+@app.route("/admin/user/<user_id>/toggle-status", methods=["POST"])
+@admin_required
+def toggle_user_status(user_id):
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+
+    if not doc.exists:
+        abort(404)
+
+    current_status = doc.to_dict().get("status")
+    new_status = "disabled" if current_status == "active" else "active"
+
+    doc_ref.update({"status": new_status})
+
+    flash(f"User has been {new_status}.", "success")
+    return redirect(url_for("manage_user", user_id=user_id))
 
 # Route alias for the AthleLink UI version if needed
 @app.route("/set-role/<role>")
