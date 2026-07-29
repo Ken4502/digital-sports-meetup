@@ -1165,6 +1165,8 @@ def toggle_user_status(user_id):
 # =========================================================
 # Sprint 2 Stage 2
 # SCRUM-113: Participant View Other Participants' Profiles
+# SCRUM-114: Participant View Organizers' Profiles
+# SCRUM-115: Organizer View Own Profile Details
 # =========================================================
 
 def get_demo_other_participants():
@@ -1326,6 +1328,229 @@ def view_participant_profile(user_id):
     except Exception as e:
         flash(f"Unable to load participant profile: {e}", "error")
         return redirect(url_for("participant_profiles"))
+
+
+# =========================================================
+# Sprint 2 Stage 3
+# SCRUM-116: Organizer View Participants' Profiles
+# SCRUM-117: Organizer View Other Organizer Profiles
+# =========================================================
+
+@app.route("/organizer/participants")
+def organizer_participant_profiles():
+    """
+    SCRUM-116:
+    Allow organizer to view registered participants' public profiles.
+    """
+
+    if session.get("role") != "organizer":
+        flash("Only organizers can view participant profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        return render_template(
+            "organizer_participant_profiles.html",
+            participants=[]
+        )
+
+    participants = []
+
+    try:
+        users_ref = db.collection("users").where("role", "==", "participant").stream()
+
+        for user_doc in users_ref:
+            participant = user_doc.to_dict()
+            participant["user_id"] = user_doc.id
+
+            if participant.get("status") != "active":
+                continue
+
+            public_participant = {
+                "user_id": participant.get("user_id", user_doc.id),
+                "role": "participant",
+                "full_name": participant.get("full_name", ""),
+                "state": participant.get("state", ""),
+                "sport_interest": participant.get("sport_interest", ""),
+                "skill_level": participant.get("skill_level", ""),
+                "status": participant.get("status", "active"),
+            }
+
+            participants.append(public_participant)
+
+    except Exception as e:
+        flash(f"Unable to load participant profiles: {e}", "error")
+
+    return render_template(
+        "organizer_participant_profiles.html",
+        participants=participants
+    )
+
+
+@app.route("/organizer/participants/<user_id>")
+def organizer_view_participant_profile(user_id):
+    """
+    SCRUM-116:
+    Allow organizer to open one participant's public profile.
+    """
+
+    if session.get("role") != "organizer":
+        flash("Only organizers can view participant profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        return redirect(url_for("organizer_participant_profiles"))
+
+    try:
+        user_doc = db.collection("users").document(user_id).get()
+
+        if not user_doc.exists:
+            flash("Participant profile not found.", "error")
+            return redirect(url_for("organizer_participant_profiles"))
+
+        participant = user_doc.to_dict()
+        participant["user_id"] = user_doc.id
+
+        if participant.get("role") != "participant":
+            flash("This profile is not a participant profile.", "error")
+            return redirect(url_for("organizer_participant_profiles"))
+
+        if participant.get("status") != "active":
+            flash("This participant profile is not active.", "error")
+            return redirect(url_for("organizer_participant_profiles"))
+
+        public_profile = {
+            "user_id": participant.get("user_id", user_doc.id),
+            "role": "participant",
+            "full_name": participant.get("full_name", ""),
+            "state": participant.get("state", ""),
+            "sport_interest": participant.get("sport_interest", ""),
+            "skill_level": participant.get("skill_level", ""),
+            "status": participant.get("status", "active"),
+        }
+
+        return render_template(
+            "organizer_view_participant_profile.html",
+            profile=public_profile
+        )
+
+    except Exception as e:
+        flash(f"Unable to load participant profile: {e}", "error")
+        return redirect(url_for("organizer_participant_profiles"))
+
+
+@app.route("/organizer/organizers")
+def organizer_organizer_profiles():
+    """
+    SCRUM-117:
+    Allow organizer to view other organizers' public profiles.
+    Current organizer's own profile is not shown.
+    """
+
+    if session.get("role") != "organizer":
+        flash("Only organizers can view other organizer profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        return render_template(
+            "organizer_organizer_profiles.html",
+            organizers=[]
+        )
+
+    current_user_id = session.get("user_id")
+    organizers = []
+
+    try:
+        users_ref = db.collection("users").where("role", "==", "organizer").stream()
+
+        for user_doc in users_ref:
+            organizer = user_doc.to_dict()
+            organizer["user_id"] = user_doc.id
+
+            if organizer["user_id"] == current_user_id:
+                continue
+
+            if organizer.get("status") != "active":
+                continue
+
+            public_organizer = {
+                "user_id": organizer.get("user_id", user_doc.id),
+                "role": "organizer",
+                "full_name": organizer.get("full_name", ""),
+                "state": organizer.get("state", ""),
+                "organization_name": organizer.get("organization_name", ""),
+                "experience_years": organizer.get("experience_years", 0),
+                "bio": organizer.get("bio", ""),
+                "status": organizer.get("status", "active"),
+            }
+
+            organizers.append(public_organizer)
+
+    except Exception as e:
+        flash(f"Unable to load organizer profiles: {e}", "error")
+
+    return render_template(
+        "organizer_organizer_profiles.html",
+        organizers=organizers
+    )
+
+
+@app.route("/organizer/organizers/<user_id>")
+def organizer_view_organizer_profile(user_id):
+    """
+    SCRUM-117:
+    Allow organizer to open another organizer's public profile.
+    """
+
+    if session.get("role") != "organizer":
+        flash("Only organizers can view other organizer profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    current_user_id = session.get("user_id")
+
+    if user_id == current_user_id:
+        flash("This is your own organizer profile.", "warning")
+        return redirect(url_for("organizer_my_profile"))
+
+    if not require_firebase():
+        return redirect(url_for("organizer_organizer_profiles"))
+
+    try:
+        user_doc = db.collection("users").document(user_id).get()
+
+        if not user_doc.exists:
+            flash("Organizer profile not found.", "error")
+            return redirect(url_for("organizer_organizer_profiles"))
+
+        organizer = user_doc.to_dict()
+        organizer["user_id"] = user_doc.id
+
+        if organizer.get("role") != "organizer":
+            flash("This profile is not an organizer profile.", "error")
+            return redirect(url_for("organizer_organizer_profiles"))
+
+        if organizer.get("status") != "active":
+            flash("This organizer profile is not active.", "error")
+            return redirect(url_for("organizer_organizer_profiles"))
+
+        public_profile = {
+            "user_id": organizer.get("user_id", user_doc.id),
+            "role": "organizer",
+            "full_name": organizer.get("full_name", ""),
+            "state": organizer.get("state", ""),
+            "organization_name": organizer.get("organization_name", ""),
+            "experience_years": organizer.get("experience_years", 0),
+            "bio": organizer.get("bio", ""),
+            "status": organizer.get("status", "active"),
+        }
+
+        return render_template(
+            "organizer_view_organizer_profile.html",
+            profile=public_profile
+        )
+
+    except Exception as e:
+        flash(f"Unable to load organizer profile: {e}", "error")
+        return redirect(url_for("organizer_organizer_profiles"))
 
 if __name__ == "__main__":
     app.run(debug=True)

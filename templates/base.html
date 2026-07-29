@@ -24,12 +24,14 @@
                 
                 {% if session.role == 'participant' %}
                     <a href="{{ url_for('my_profile') }}">My Profile</a>
-                    <a href="{{ url_for('participant_profiles') }}">Participants</a>
+                    <a href="{{ url_for('participant_profiles') }}">Participants Profiles</a>
                     <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
                 {% elif session.role == 'organizer' %}
                     <a href="{{ url_for('my_profile') }}">My Profile</a>
                     <a href="{{ url_for('create_meetup') }}">Create Meetup</a>
                     <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
+                    <a href="{{ url_for('organizer_participant_profiles') }}">Participant Profiles</a>
+                    <a href="{{ url_for('organizer_organizer_profiles') }}">Organizer Profiles</a>
                 {% elif session.role == 'admin' %}
                     <a href="{{ url_for('admin_dashboard') }}">Manage Users</a>
                     <a href="{{ url_for('manage_meetups') }}">Manage Meetups</a>

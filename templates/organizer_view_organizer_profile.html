@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="form-card">
+    <h1>Organizer Profile</h1>
+    <p class="page-subtitle">
+        View organizer hosting profile.
+    </p>
+
+    <div class="profile-card">
+        <h2>{{ profile.full_name }}</h2>
+        <span class="role-badge">{{ profile.role }}</span>
+
+        <div class="profile-grid">
+            <div>
+                <strong>State</strong>
+                <p>{{ profile.state }}</p>
+            </div>
+
+            <div>
+                <strong>Organization Name</strong>
+                <p>{{ profile.organization_name }}</p>
+            </div>
+
+            <div>
+                <strong>Experience Years</strong>
+                <p>{{ profile.experience_years }}</p>
+            </div>
+
+            <div>
+                <strong>Status</strong>
+                <p>{{ profile.status }}</p>
+            </div>
+        </div>
+
+        <hr>
+
+        <h3>Organizer Bio</h3>
+        <p>{{ profile.bio }}</p>
+
+        <a class="secondary-btn" href="{{ url_for('organizer_organizer_profiles') }}">
+            Back to Organizer Profiles
+        </a>
+    </div>
+</section>
+{% endblock %}
