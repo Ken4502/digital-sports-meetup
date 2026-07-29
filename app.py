@@ -1310,12 +1310,13 @@ def view_participant_profile(user_id):
 
         # Only show public information
         public_profile = {
-            "user_id": participant.get("user_id", ""),
-            "role": participant.get("role", "participant"),
+            "user_id": participant.get("user_id", user_doc.id),
+            "role": "participant",
             "full_name": participant.get("full_name", ""),
             "state": participant.get("state", ""),
             "sport_interest": participant.get("sport_interest", ""),
             "skill_level": participant.get("skill_level", ""),
+            "bio": participant.get("bio", ""),
             "status": participant.get("status", "active"),
         }
 
@@ -1425,6 +1426,7 @@ def organizer_view_participant_profile(user_id):
             "state": participant.get("state", ""),
             "sport_interest": participant.get("sport_interest", ""),
             "skill_level": participant.get("skill_level", ""),
+            "bio": participant.get("bio", ""),
             "status": participant.get("status", "active"),
         }
 

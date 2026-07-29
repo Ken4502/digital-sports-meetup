@@ -3,6 +3,7 @@
 {% block content %}
 <section class="profile-detail-page">
     <div class="profile-detail-card">
+
         <div class="profile-detail-top">
             <div class="avatar-circle large-avatar">
                 {{ profile.full_name[:1] }}
@@ -11,6 +12,9 @@
             <div>
                 <h1>{{ profile.full_name }}</h1>
                 <span class="mini-badge">Participant</span>
+                <p class="profile-detail-subtitle">
+                    Participant public profile viewed by organizer
+                </p>
             </div>
         </div>
 
@@ -34,11 +38,31 @@
                 <span>Status</span>
                 <strong>{{ profile.status or "active" }}</strong>
             </div>
+
+            <div class="profile-detail-item">
+                <span>Role</span>
+                <strong>{{ profile.role or "participant" }}</strong>
+            </div>
+
+            <div class="profile-detail-item">
+                <span>Profile Visibility</span>
+                <strong>Public Profile</strong>
+            </div>
+        </div>
+
+        <div class="bio-box">
+            <h2>About Participant</h2>
+            <p>{{ profile.bio or "This participant has not added a bio yet." }}</p>
+        </div>
+
+        <div class="privacy-note-box">
+            <strong>Privacy note:</strong>
+            This page only shows public participant information. Email, phone number, and password information are hidden.
         </div>
 
         <div class="profile-detail-actions">
             <a class="secondary-btn" href="{{ url_for('organizer_participant_profiles') }}">
-                Back
+                Back to Participant Profiles
             </a>
         </div>
     </div>

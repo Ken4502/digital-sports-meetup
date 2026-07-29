@@ -1761,3 +1761,37 @@ body {
         text-align: left;
     }
 }
+
+.profile-detail-subtitle {
+    margin: 6px 0 0;
+    color: #667085;
+    font-size: 14px;
+}
+
+.privacy-note-box {
+    margin-top: 22px;
+    background: #FFF7ED;
+    border: 1px solid #FDE3CF;
+    color: #9A4A13;
+    border-radius: 18px;
+    padding: 16px 18px;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.profile-detail-subtitle {
+    margin: 6px 0 0;
+    color: #667085;
+    font-size: 14px;
+}
+
+.privacy-note-box {
+    margin-top: 22px;
+    background: #FFF7ED;
+    border: 1px solid #FDE3CF;
+    color: #9A4A13;
+    border-radius: 18px;
+    padding: 16px 18px;
+    font-size: 14px;
+    line-height: 1.6;
+}

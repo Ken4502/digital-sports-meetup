@@ -24,7 +24,7 @@
                 
                 {% if session.role == 'participant' %}
                     <a href="{{ url_for('my_profile') }}">My Profile</a>
-                    <a href="{{ url_for('participant_profiles') }}">Participants Profiles</a>
+                    <a href="{{ url_for('participant_profiles') }}">Participant Profiles</a>
                     <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
                 {% elif session.role == 'organizer' %}
                     <a href="{{ url_for('my_profile') }}">My Profile</a>
