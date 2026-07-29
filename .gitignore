@@ -4,3 +4,5 @@ dist/
 build/
 .vscode/serviceAccountKey.json
 serviceAccountKey.json
+__pycache__/
+*.pyc
