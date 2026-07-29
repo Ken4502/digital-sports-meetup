@@ -1,49 +1,65 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="form-card">
-    <h1>Participant Profiles</h1>
-    <p class="page-subtitle">
-        View participants' sports interests and skill levels.
-    </p>
+<section class="profile-page">
+    <div class="profile-page-header">
+        <div>
+            <h1>Participant Profiles</h1>
+            <p>View participants' sports interests and skill levels.</p>
+        </div>
+        <span class="profile-count">{{ participants|length }} Participants</span>
+    </div>
 
     {% if participants %}
-        <div class="profile-list">
+        <div class="profile-card-grid">
             {% for participant in participants %}
-                <div class="profile-card">
-                    <h2>{{ participant.full_name }}</h2>
-                    <span class="role-badge">{{ participant.role }}</span>
-
-                    <div class="profile-grid">
-                        <div>
-                            <strong>State</strong>
-                            <p>{{ participant.state }}</p>
+                <article class="profile-card-v2">
+                    <div class="profile-card-top">
+                        <div class="avatar-circle">
+                            {{ participant.full_name[:1] }}
                         </div>
 
                         <div>
-                            <strong>Sport Interest</strong>
-                            <p>{{ participant.sport_interest }}</p>
-                        </div>
-
-                        <div>
-                            <strong>Skill Level</strong>
-                            <p>{{ participant.skill_level }}</p>
-                        </div>
-
-                        <div>
-                            <strong>Status</strong>
-                            <p>{{ participant.status }}</p>
+                            <h2>{{ participant.full_name }}</h2>
+                            <span class="mini-badge">Participant</span>
                         </div>
                     </div>
 
-                    <a class="primary-btn" href="{{ url_for('organizer_view_participant_profile', user_id=participant.user_id) }}">
-                        View Participant Profile
-                    </a>
-                </div>
+                    <div class="profile-info-list">
+                        <div class="profile-info-row">
+                            <span>Sport Interest</span>
+                            <strong>{{ participant.sport_interest or "Not provided" }}</strong>
+                        </div>
+
+                        <div class="profile-info-row">
+                            <span>Skill Level</span>
+                            <strong>{{ participant.skill_level or "Not provided" }}</strong>
+                        </div>
+
+                        <div class="profile-info-row">
+                            <span>State</span>
+                            <strong>{{ participant.state or "Not provided" }}</strong>
+                        </div>
+
+                        <div class="profile-info-row">
+                            <span>Status</span>
+                            <strong>{{ participant.status or "active" }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="profile-card-footer">
+                        <a class="profile-view-btn" href="{{ url_for('organizer_view_participant_profile', user_id=participant.user_id) }}">
+                            View Profile
+                        </a>
+                    </div>
+                </article>
             {% endfor %}
         </div>
     {% else %}
-        <p>No participant profiles found.</p>
+        <div class="empty-state-box">
+            <h2>No participant profiles found</h2>
+            <p>There are no active participant accounts available in Firestore yet.</p>
+        </div>
     {% endif %}
 </section>
 {% endblock %}

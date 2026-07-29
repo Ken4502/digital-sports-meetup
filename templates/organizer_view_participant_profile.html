@@ -1,41 +1,46 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="form-card">
-    <h1>Participant Profile</h1>
-    <p class="page-subtitle">
-        View participant sports interest and skill level.
-    </p>
-
-    <div class="profile-card">
-        <h2>{{ profile.full_name }}</h2>
-        <span class="role-badge">{{ profile.role }}</span>
-
-        <div class="profile-grid">
-            <div>
-                <strong>State</strong>
-                <p>{{ profile.state }}</p>
+<section class="profile-detail-page">
+    <div class="profile-detail-card">
+        <div class="profile-detail-top">
+            <div class="avatar-circle large-avatar">
+                {{ profile.full_name[:1] }}
             </div>
 
             <div>
-                <strong>Sport Interest</strong>
-                <p>{{ profile.sport_interest }}</p>
-            </div>
-
-            <div>
-                <strong>Skill Level</strong>
-                <p>{{ profile.skill_level }}</p>
-            </div>
-
-            <div>
-                <strong>Status</strong>
-                <p>{{ profile.status }}</p>
+                <h1>{{ profile.full_name }}</h1>
+                <span class="mini-badge">Participant</span>
             </div>
         </div>
 
-        <a class="secondary-btn" href="{{ url_for('organizer_participant_profiles') }}">
-            Back to Participant Profiles
-        </a>
+        <div class="profile-detail-grid">
+            <div class="profile-detail-item">
+                <span>Sport Interest</span>
+                <strong>{{ profile.sport_interest or "Not provided" }}</strong>
+            </div>
+
+            <div class="profile-detail-item">
+                <span>Skill Level</span>
+                <strong>{{ profile.skill_level or "Not provided" }}</strong>
+            </div>
+
+            <div class="profile-detail-item">
+                <span>State</span>
+                <strong>{{ profile.state or "Not provided" }}</strong>
+            </div>
+
+            <div class="profile-detail-item">
+                <span>Status</span>
+                <strong>{{ profile.status or "active" }}</strong>
+            </div>
+        </div>
+
+        <div class="profile-detail-actions">
+            <a class="secondary-btn" href="{{ url_for('organizer_participant_profiles') }}">
+                Back
+            </a>
+        </div>
     </div>
 </section>
 {% endblock %}

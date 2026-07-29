@@ -1,46 +1,51 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="form-card">
-    <h1>Organizer Profile</h1>
-    <p class="page-subtitle">
-        View organizer hosting profile.
-    </p>
-
-    <div class="profile-card">
-        <h2>{{ profile.full_name }}</h2>
-        <span class="role-badge">{{ profile.role }}</span>
-
-        <div class="profile-grid">
-            <div>
-                <strong>State</strong>
-                <p>{{ profile.state }}</p>
+<section class="profile-detail-page">
+    <div class="profile-detail-card">
+        <div class="profile-detail-top">
+            <div class="avatar-circle large-avatar">
+                {{ profile.full_name[:1] }}
             </div>
 
             <div>
-                <strong>Organization Name</strong>
-                <p>{{ profile.organization_name }}</p>
-            </div>
-
-            <div>
-                <strong>Experience Years</strong>
-                <p>{{ profile.experience_years }}</p>
-            </div>
-
-            <div>
-                <strong>Status</strong>
-                <p>{{ profile.status }}</p>
+                <h1>{{ profile.full_name }}</h1>
+                <span class="mini-badge organizer-badge">Organizer</span>
             </div>
         </div>
 
-        <hr>
+        <div class="profile-detail-grid">
+            <div class="profile-detail-item">
+                <span>Organization</span>
+                <strong>{{ profile.organization_name or "Not provided" }}</strong>
+            </div>
 
-        <h3>Organizer Bio</h3>
-        <p>{{ profile.bio }}</p>
+            <div class="profile-detail-item">
+                <span>Experience</span>
+                <strong>{{ profile.experience_years or 0 }} years</strong>
+            </div>
 
-        <a class="secondary-btn" href="{{ url_for('organizer_organizer_profiles') }}">
-            Back to Organizer Profiles
-        </a>
+            <div class="profile-detail-item">
+                <span>State</span>
+                <strong>{{ profile.state or "Not provided" }}</strong>
+            </div>
+
+            <div class="profile-detail-item">
+                <span>Status</span>
+                <strong>{{ profile.status or "active" }}</strong>
+            </div>
+        </div>
+
+        <div class="bio-box">
+            <h2>Organizer Bio</h2>
+            <p>{{ profile.bio or "No bio provided." }}</p>
+        </div>
+
+        <div class="profile-detail-actions">
+            <a class="secondary-btn" href="{{ url_for('organizer_organizer_profiles') }}">
+                Back
+            </a>
+        </div>
     </div>
 </section>
 {% endblock %}
