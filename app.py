@@ -314,7 +314,25 @@ def get_register_form_from_request():
 
 
 def is_valid_email(email):
-    return re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) is not None
+    return re.match(
+        r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$",
+        email
+    ) is not None
+
+
+def normalize_phone(phone):
+    return phone.replace(" ", "").replace("-", "").strip()
+
+
+def is_strong_password(password):
+    if len(password) < 8:
+        return False
+
+    has_alphabet = re.search(r"[A-Za-z]", password)
+    has_number = re.search(r"[0-9]", password)
+    has_symbol = re.search(r"[^A-Za-z0-9]", password)
+
+    return has_alphabet and has_number and has_symbol
 
 
 def build_user_id(role, email):
@@ -332,6 +350,18 @@ def email_already_registered(email):
     existing_users = db.collection("users").where("email", "==", email).limit(1).stream()
     return any(True for _ in existing_users)
 
+def phone_already_registered(phone_clean):
+    if db is None:
+        return False
+
+    existing_users = (
+        db.collection("users")
+        .where("phone_clean", "==", phone_clean)
+        .limit(1)
+        .stream()
+    )
+
+    return any(True for _ in existing_users)
 
 def validate_register_form(form_data):
     errors = []
@@ -360,8 +390,8 @@ def validate_register_form(form_data):
 
     if not password:
         errors.append("Password is required.")
-    elif len(password) < 6:
-        errors.append("Password must be at least 6 characters.")
+    elif not is_strong_password(password):
+        errors.append("Password must be at least 8 characters and include alphabet, number, and symbol.")
 
     if password != confirm_password:
         errors.append("Password and confirm password do not match.")
@@ -369,8 +399,14 @@ def validate_register_form(form_data):
     if role not in REGISTER_ROLES:
         errors.append("Please select a valid account role.")
 
-    if phone and not phone.replace("-", "").replace(" ", "").isdigit():
+    phone_clean = normalize_phone(phone)
+
+    if not phone:
+        errors.append("Phone number is required.")
+    elif not phone_clean.isdigit():
         errors.append("Phone number can only contain numbers, spaces, or dashes.")
+    elif len(phone_clean) < 10 or len(phone_clean) > 11:
+        errors.append("Phone number must be 10 to 11 digits.")
 
     if role == "participant":
         if not sport_interest:
@@ -422,8 +458,13 @@ def register():
         form_data = get_register_form_from_request()
         errors = validate_register_form(form_data)
 
+        phone_clean = normalize_phone(form_data["phone"])
+
         if form_data.get("email") and email_already_registered(form_data["email"]):
             errors.append("This email is already registered.")
+
+        if phone_clean and phone_already_registered(phone_clean):
+            errors.append("This phone number is already registered.")
 
         if errors:
             for error in errors:
@@ -448,6 +489,7 @@ def register():
             "password_hash": generate_password_hash(form_data["password"]),
             "role": user_role,
             "phone": form_data["phone"],
+            "phone_clean": phone_clean,
             "sport_interest": form_data["sport_interest"],
             "skill_level": form_data["skill_level"],
             "organization_name": form_data["organization_name"],
@@ -462,6 +504,7 @@ def register():
 
         session["user_id"] = user_id
         session["role"] = user_role
+        session["full_name"] = form_data["full_name"]
 
         flash("Account registered successfully.", "success")
         return redirect(url_for("my_profile"))
@@ -566,8 +609,8 @@ def login():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
 
-        if not email or not password:
-            flash("Email and password are required.", "error")
+        if not is_valid_email(email):
+            flash("Please enter a valid email address.", "error")
             return redirect(url_for("login"))
 
         users_ref = db.collection("users").where("email", "==", email).limit(1).stream()
@@ -584,8 +627,10 @@ def login():
             flash("Invalid credentials.", "error")
             return redirect(url_for("login"))
 
+        session.clear()
         session["user_id"] = user_doc.id
         session["role"] = user.get("role")
+        session["full_name"] = user.get("full_name", "")
         flash("Logged in successfully.", "success")
         return redirect(url_for("index"))
 
