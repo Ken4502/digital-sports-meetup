@@ -331,10 +331,18 @@ def get_register_form_from_request():
 
 
 def is_valid_email(email):
-    return re.match(
-        r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$",
-        email
-    ) is not None
+    if not email:
+        return False
+
+    email = email.strip()
+
+    if ".." in email:
+        return False
+
+    email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+
+    return re.match(email_pattern, email) is not None
+
 
 
 def normalize_phone(phone):
@@ -342,14 +350,18 @@ def normalize_phone(phone):
 
 
 def is_strong_password(password):
+    if not password:
+        return False
+
     if len(password) < 8:
         return False
 
-    has_alphabet = re.search(r"[A-Za-z]", password)
-    has_number = re.search(r"[0-9]", password)
-    has_symbol = re.search(r"[^A-Za-z0-9]", password)
+    has_alphabet = re.search(r"[A-Za-z]", password) is not None
+    has_number = re.search(r"[0-9]", password) is not None
+    has_symbol = re.search(r"[^A-Za-z0-9]", password) is not None
 
     return has_alphabet and has_number and has_symbol
+
 
 
 def build_user_id(role, email):
