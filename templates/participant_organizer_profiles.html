@@ -5,14 +5,14 @@
     <div class="profile-page-header">
         <div>
             <h1>Organizer Profiles</h1>
-            <p>View other organizers' hosting profiles and experience.</p>
+            <p>View public profiles of meetup organizers.</p>
         </div>
         <span class="profile-count">{{ organizers|length }} Organizers</span>
     </div>
 
     <!-- Filter Form -->
     <div class="filter-card" style="border-radius: 24px; margin-bottom: 24px;">
-        <form method="GET" action="{{ url_for('organizer_organizer_profiles') }}" class="modern-form">
+        <form method="GET" action="{{ url_for('participant_organizer_profiles') }}" class="modern-form">
             <div class="filter-grid" style="grid-template-columns: 1fr;">
                 <div class="form-group">
                     <label for="keyword">Name or Organization</label>
@@ -20,7 +20,7 @@
                 </div>
             </div>
             <div class="filter-actions">
-                <a href="{{ url_for('organizer_organizer_profiles') }}" class="btn cancel-btn">Reset</a>
+                <a href="{{ url_for('participant_organizer_profiles') }}" class="btn cancel-btn">Reset</a>
                 <button type="submit" class="btn primary-btn">Filter</button>
             </div>
         </form>
@@ -62,15 +62,10 @@
                             <span>State</span>
                             <strong>{{ organizer.state or "Not provided" }}</strong>
                         </div>
-
-                        <div class="profile-info-row">
-                            <span>Status</span>
-                            <strong>{{ organizer.status or "active" }}</strong>
-                        </div>
                     </div>
 
                     <div class="profile-card-footer">
-                        <a class="profile-view-btn" href="{{ url_for('organizer_view_organizer_profile', user_id=organizer.user_id) }}">
+                        <a class="profile-view-btn" href="{{ url_for('participant_view_organizer_profile', user_id=organizer.user_id) }}">
                             View Profile
                         </a>
                     </div>
@@ -79,11 +74,11 @@
         </div>
     {% else %}
         <div class="empty-state-box">
-            <h2>No other organizer profiles found</h2>
+            <h2>No organizer profiles found</h2>
             {% if filters.keyword %}
                 <p>No organizers match your current filters. Try adjusting your search criteria.</p>
             {% else %}
-                <p>There are no other active organizer accounts available in Firestore yet.</p>
+                <p>There are no active organizer accounts available at the moment.</p>
             {% endif %}
         </div>
     {% endif %}

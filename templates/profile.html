@@ -88,28 +88,67 @@
 
         <details class="edit-profile-details" style="margin-top: 30px;">
             <summary class="btn outline-btn" style="width: fit-content; cursor: pointer;">
-                Edit Bio{% if user.role == "participant" %} & Sport Interest{% endif %}
+                Edit Profile
             </summary>
 
             <form method="POST" action="{{ url_for('edit_profile') }}" class="modern-form" style="margin-top: 20px;">
+                <div class="section-divider" style="margin: 0 0 22px;">
+                    <h3>Personal Information</h3>
+                </div>
+
+                <div class="form-group">
+                    <label for="full_name">Full Name <span>*</span></label>
+                    <input type="text" id="full_name" name="full_name" value="{{ user.full_name or '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email <span>*</span></label>
+                    <input type="email" id="email" name="email" value="{{ user.email or '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number <span>*</span></label>
+                    <input type="text" id="phone" name="phone" value="{{ user.phone or '' }}" placeholder="Example: 012-3456789" required>
+                </div>
+
                 <div class="form-group">
                     <label for="bio">Bio</label>
                     <textarea id="bio" name="bio" rows="4" maxlength="300">{{ user.bio or '' }}</textarea>
                     <small>Maximum 300 characters.</small>
                 </div>
 
-                {% if user.role == "participant" %}
+                {% if user.role == 'participant' %}
                     <div class="form-group">
                         <label for="sport_interest">Sport Interest <span>*</span></label>
                         <select id="sport_interest" name="sport_interest">
                             {% for sport in sport_options %}
-                                <option value="{{ sport }}" {% if user.sport_interest == sport %}selected{% endif %}>
-                                    {{ sport }}
-                                </option>
+                                <option value="{{ sport }}" {% if user.sport_interest == sport %}selected{% endif %}>{{ sport }}</option>
                             {% endfor %}
                         </select>
                     </div>
                 {% endif %}
+
+                <div class="section-divider" style="margin: 22px 0;">
+                    <h3>Change Password (Optional)</h3>
+                    <p>Leave these fields blank if you do not want to change your password.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="current_password">Current Password</label>
+                    <input type="password" id="current_password" name="current_password" placeholder="Enter your current password">
+                    <small>Required if changing password.</small>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="new_password">New Password</label>
+                        <input type="password" id="new_password" name="new_password" placeholder="Enter new password">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm_new_password">Confirm New Password</label>
+                        <input type="password" id="confirm_new_password" name="confirm_new_password" placeholder="Confirm new password">
+                    </div>
+                </div>
 
                 <div class="form-actions">
                     <button type="submit" class="btn primary-btn">Save Changes</button>

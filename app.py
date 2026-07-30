@@ -58,6 +58,23 @@ ALLOWED_SPORTS = [
     "Volleyball",
 ]
 
+STATES = [
+    "Penang",
+    "Kuala Lumpur",
+    "Selangor",
+    "Perak",
+    "Kedah",
+    "Perlis",
+    "Johor",
+    "Melaka",
+    "Negeri Sembilan",
+    "Pahang",
+    "Terengganu",
+    "Kelantan",
+    "Sabah",
+    "Sarawak",
+]
+
 
 def require_firebase():
     if db is None:
@@ -550,27 +567,88 @@ def edit_profile():
     if not require_firebase():
         return redirect(url_for("my_profile"))
 
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get()
+
+    if not user_doc.exists:
+        flash("User not found.", "error")
+        session.clear()
+        return redirect(url_for("login"))
+
+    user = user_doc.to_dict()
+
+    # Get form data
+    full_name = request.form.get("full_name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    phone = request.form.get("phone", "").strip()
     bio = request.form.get("bio", "").strip()
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm_new_password = request.form.get("confirm_new_password", "")
 
+    errors = []
+    update_data = {"updated_at": firestore.SERVER_TIMESTAMP}
+
+    # Validate Full Name
+    if not full_name or len(full_name) < 3:
+        errors.append("Full name must be at least 3 characters.")
+    else:
+        update_data["full_name"] = full_name
+
+    # Validate Email
+    if not email or not is_valid_email(email):
+        errors.append("Please enter a valid email address.")
+    elif email != user.get("email") and email_already_registered(email):
+        errors.append("This email is already registered by another user.")
+    else:
+        update_data["email"] = email
+
+    # Validate Phone
+    phone_clean = normalize_phone(phone)
+    if not phone:
+        errors.append("Phone number is required.")
+    elif not phone_clean.isdigit():
+        errors.append("Phone number can only contain numbers, spaces, or dashes.")
+    elif len(phone_clean) < 10 or len(phone_clean) > 11:
+        errors.append("Phone number must be 10 to 11 digits.")
+    elif phone_clean != user.get("phone_clean") and phone_already_registered(phone_clean):
+        errors.append("This phone number is already registered by another user.")
+    else:
+        update_data["phone"] = phone
+        update_data["phone_clean"] = phone_clean
+
+    # Validate Bio
     if len(bio) > 300:
-        flash("Bio cannot be more than 300 characters.", "error")
-        return redirect(url_for("my_profile"))
+        errors.append("Bio cannot be more than 300 characters.")
+    else:
+        update_data["bio"] = bio
 
-    update_data = {
-        "bio": bio,
-        "updated_at": firestore.SERVER_TIMESTAMP,
-    }
+    # Validate Password Change
+    if new_password:
+        if not check_password_hash(user.get("password_hash", ""), current_password):
+            errors.append("Current password is incorrect.")
+        if not is_strong_password(new_password):
+            errors.append("New password must be at least 8 characters and include an alphabet, a number, and a symbol.")
+        if new_password != confirm_new_password:
+            errors.append("New password and confirmation do not match.")
+        else:
+            update_data["password_hash"] = generate_password_hash(new_password)
 
+    # Role-specific fields
     if session.get("role") == "participant":
         sport_interest = request.form.get("sport_interest", "").strip()
-
         if sport_interest not in ALLOWED_SPORTS:
-            flash("Please select a valid sport interest.", "error")
-            return redirect(url_for("my_profile"))
+            errors.append("Please select a valid sport interest.")
+        else:
+            update_data["sport_interest"] = sport_interest
 
-        update_data["sport_interest"] = sport_interest
+    if errors:
+        for error in errors:
+            flash(error, "error")
+        return redirect(url_for("my_profile"))
 
-    db.collection("users").document(user_id).update(update_data)
+    user_ref.update(update_data)
+    session["full_name"] = full_name # Update session if name changes
     flash("Profile updated successfully.", "success")
     return redirect(url_for("my_profile"))
 
@@ -1217,7 +1295,30 @@ def manage_user(user_id):
         flash("Admin accounts cannot be managed from this page.", "error")
         return redirect(url_for("admin_dashboard"))
 
-    return render_template("manage_user.html", user=user, upcoming_meetups=[], past_meetups=[])
+    upcoming_meetups = []
+    past_meetups = []
+
+    try:
+        # Find all meetups this user has joined
+        meetup_docs = db.collection("meetups").where("participant_ids", "array_contains", user_id).stream()
+
+        for doc in meetup_docs:
+            meetup = doc.to_dict()
+            meetup["id"] = doc.id
+
+            if is_meetup_past(meetup):
+                past_meetups.append(meetup)
+            else:
+                upcoming_meetups.append(meetup)
+
+        # Sort meetups by date
+        upcoming_meetups.sort(key=lambda m: (m.get("meetup_date", ""), m.get("meetup_time", "")))
+        past_meetups.sort(key=lambda m: (m.get("meetup_date", ""), m.get("meetup_time", "")), reverse=True)
+
+    except Exception as e:
+        flash(f"An error occurred while fetching user's meetups: {e}", "error")
+
+    return render_template("manage_user.html", user=user, upcoming_meetups=upcoming_meetups, past_meetups=past_meetups)
 
 
 @app.route("/admin/toggle-user-status/<user_id>", methods=["POST"])
@@ -1244,6 +1345,62 @@ def toggle_user_status(user_id):
         flash(f"User status changed to {new_status}.", "success")
 
     return redirect(url_for("manage_user", user_id=user_id))
+
+@app.route("/admin/edit-user/<user_id>", methods=["POST"])
+def admin_edit_user(user_id):
+    if session.get("role") != "admin":
+        flash("You do not have permission to perform this action.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("manage_user", user_id=user_id))
+
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get()
+
+    if not user_doc.exists:
+        flash("User not found.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    user = user_doc.to_dict()
+
+    email = request.form.get("email", "").strip().lower()
+    phone = request.form.get("phone", "").strip()
+
+    errors = []
+    update_data = {"updated_at": firestore.SERVER_TIMESTAMP}
+
+    # Validate Email
+    if not email or not is_valid_email(email):
+        errors.append("Please enter a valid email address.")
+    elif email != user.get("email") and email_already_registered(email):
+        errors.append("This email is already registered by another user.")
+    else:
+        update_data["email"] = email
+
+    # Validate Phone
+    phone_clean = normalize_phone(phone)
+    if not phone:
+        errors.append("Phone number is required.")
+    elif not phone_clean.isdigit():
+        errors.append("Phone number can only contain numbers, spaces, or dashes.")
+    elif len(phone_clean) < 10 or len(phone_clean) > 11:
+        errors.append("Phone number must be 10 to 11 digits.")
+    elif phone_clean != user.get("phone_clean") and phone_already_registered(phone_clean):
+        errors.append("This phone number is already registered by another user.")
+    else:
+        update_data["phone"] = phone
+        update_data["phone_clean"] = phone_clean
+
+    if errors:
+        for error in errors:
+            flash(error, "error")
+        return redirect(url_for("manage_user", user_id=user_id))
+
+    user_ref.update(update_data)
+    flash("User details updated successfully.", "success")
+    return redirect(url_for("manage_user", user_id=user_id))
+
 
 # =========================================================
 # Sprint 2 Stage 2
@@ -1295,7 +1452,8 @@ def participant_profiles():
     current_role = session.get("role")
     current_user_id = session.get("user_id")
 
-    if current_role != "participant":
+    # This page is now shared between participant and organizer roles
+    if current_role not in ["participant", "organizer"]:
         flash("Only participants can view other participants' profiles.", "error")
         return redirect(url_for("my_profile"))
 
@@ -1304,8 +1462,15 @@ def participant_profiles():
         return render_template(
             "participant_profiles.html",
             participants=demo_participants,
-            is_demo=True
+            filters={},
+            sport_options=ALLOWED_SPORTS,
+            skill_levels=SKILL_LEVELS
         )
+
+    # Filter logic
+    keyword = request.args.get("keyword", "").strip().lower()
+    sport_interest = request.args.get("sport_interest", "").strip()
+    skill_level = request.args.get("skill_level", "").strip()
 
     participants = []
 
@@ -1324,6 +1489,16 @@ def participant_profiles():
             if participant.get("status") != "active":
                 continue
 
+            # Apply filters
+            name = participant.get("full_name", "").lower()
+
+            if keyword and keyword not in name:
+                continue
+            if sport_interest and sport_interest != participant.get("sport_interest"):
+                continue
+            if skill_level and skill_level != participant.get("skill_level"):
+                continue
+
             # Only expose public profile information
             public_participant = {
                 "user_id": participant.get("user_id", ""),
@@ -1340,10 +1515,17 @@ def participant_profiles():
     except Exception as e:
         flash(f"Unable to load participant profiles: {e}", "error")
 
+    filters = {
+        "keyword": request.args.get("keyword", ""),
+        "sport_interest": sport_interest,
+        "skill_level": skill_level,
+    }
+
     return render_template(
         "participant_profiles.html",
         participants=participants,
-        is_demo=False
+        filters=filters,
+        sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS
     )
 
 
@@ -1414,6 +1596,111 @@ def view_participant_profile(user_id):
         return redirect(url_for("participant_profiles"))
 
 
+@app.route("/organizers")
+def participant_organizer_profiles():
+    """
+    Allow a registered user (participant or organizer) to view a list of public organizer profiles.
+    """
+    if session.get("role") not in ["participant", "organizer"]:
+        flash("You must be logged in to view organizer profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    current_user_id = session.get("user_id")
+
+    # Filter logic
+    keyword = request.args.get("keyword", "").strip().lower()
+
+    if not require_firebase():
+        return render_template("participant_organizer_profiles.html", organizers=[], filters={})
+
+    organizers = []
+    try:
+        users_ref = db.collection("users").where("role", "==", "organizer").stream()
+        for user_doc in users_ref:
+            organizer = user_doc.to_dict()
+
+            if user_doc.id == current_user_id:
+                continue
+
+            if organizer.get("status") != "active":
+                continue
+
+            # Apply filters
+            name = organizer.get("full_name", "").lower()
+            org_name = organizer.get("organization_name", "").lower()
+
+            if keyword and not (keyword in name or keyword in org_name):
+                continue
+
+            public_organizer = {
+                "user_id": user_doc.id,
+                "full_name": organizer.get("full_name", ""),
+                "organization_name": organizer.get("organization_name", ""),
+                "experience_years": organizer.get("experience_years", 0),
+                "state": organizer.get("state", ""),
+                "status": organizer.get("status", "active"),
+            }
+            organizers.append(public_organizer)
+
+    except Exception as e:
+        flash(f"Unable to load organizer profiles: {e}", "error")
+
+    filters = {
+        "keyword": request.args.get("keyword", ""),
+    }
+
+    return render_template("participant_organizer_profiles.html", organizers=organizers, filters=filters)
+
+
+@app.route("/organizers/<user_id>")
+def participant_view_organizer_profile(user_id):
+    """
+    Allow a participant to view a single organizer's public profile.
+    """
+    if session.get("role") not in ["participant", "organizer"]:
+        flash("You must be logged in to view organizer profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        return redirect(url_for("participant_organizer_profiles"))
+
+    try:
+        user_doc = db.collection("users").document(user_id).get()
+
+        if not user_doc.exists:
+            flash("Organizer profile not found.", "error")
+            return redirect(url_for("participant_organizer_profiles"))
+
+        organizer = user_doc.to_dict()
+
+        if organizer.get("role") != "organizer":
+            flash("This profile is not an organizer profile.", "error")
+            return redirect(url_for("participant_organizer_profiles"))
+
+        if organizer.get("status") != "active":
+            flash("This organizer profile is not active.", "error")
+            return redirect(url_for("participant_organizer_profiles"))
+
+        public_profile = {
+            "user_id": user_doc.id,
+            "full_name": organizer.get("full_name", ""),
+            "organization_name": organizer.get("organization_name", ""),
+            "experience_years": organizer.get("experience_years", 0),
+            "state": organizer.get("state", ""),
+            "bio": organizer.get("bio", ""),
+            "status": organizer.get("status", "active"),
+        }
+
+        return render_template(
+            "participant_view_organizer_profile.html",
+            profile=public_profile
+        )
+
+    except Exception as e:
+        flash(f"Unable to load organizer profile: {e}", "error")
+        return redirect(url_for("participant_organizer_profiles"))
+
+
 # =========================================================
 # Sprint 2 Stage 3
 # SCRUM-116: Organizer View Participants' Profiles
@@ -1432,10 +1719,12 @@ def organizer_participant_profiles():
         return redirect(url_for("my_profile"))
 
     if not require_firebase():
-        return render_template(
-            "organizer_participant_profiles.html",
-            participants=[]
-        )
+        return render_template("organizer_participant_profiles.html", participants=[], filters={}, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
+
+    # Filter logic
+    keyword = request.args.get("keyword", "").strip().lower()
+    sport_interest = request.args.get("sport_interest", "").strip()
+    skill_level = request.args.get("skill_level", "").strip()
 
     participants = []
 
@@ -1447,6 +1736,16 @@ def organizer_participant_profiles():
             participant["user_id"] = user_doc.id
 
             if participant.get("status") != "active":
+                continue
+
+            # Apply filters
+            name = participant.get("full_name", "").lower()
+
+            if keyword and keyword not in name:
+                continue
+            if sport_interest and sport_interest != participant.get("sport_interest"):
+                continue
+            if skill_level and skill_level != participant.get("skill_level"):
                 continue
 
             public_participant = {
@@ -1464,9 +1763,16 @@ def organizer_participant_profiles():
     except Exception as e:
         flash(f"Unable to load participant profiles: {e}", "error")
 
+    filters = {
+        "keyword": request.args.get("keyword", ""),
+        "sport_interest": sport_interest,
+        "skill_level": skill_level,
+    }
+
     return render_template(
         "organizer_participant_profiles.html",
-        participants=participants
+        participants=participants,
+        filters=filters, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS
     )
 
 
@@ -1536,13 +1842,13 @@ def organizer_organizer_profiles():
         return redirect(url_for("my_profile"))
 
     if not require_firebase():
-        return render_template(
-            "organizer_organizer_profiles.html",
-            organizers=[]
-        )
+        return render_template("organizer_organizer_profiles.html", organizers=[], filters={})
 
     current_user_id = session.get("user_id")
     organizers = []
+
+    # Filter logic
+    keyword = request.args.get("keyword", "").strip().lower()
 
     try:
         users_ref = db.collection("users").where("role", "==", "organizer").stream()
@@ -1555,6 +1861,13 @@ def organizer_organizer_profiles():
                 continue
 
             if organizer.get("status") != "active":
+                continue
+
+            # Apply filters
+            name = organizer.get("full_name", "").lower()
+            org_name = organizer.get("organization_name", "").lower()
+
+            if keyword and not (keyword in name or keyword in org_name):
                 continue
 
             public_organizer = {
@@ -1573,9 +1886,13 @@ def organizer_organizer_profiles():
     except Exception as e:
         flash(f"Unable to load organizer profiles: {e}", "error")
 
+    filters = {
+        "keyword": request.args.get("keyword", ""),
+    }
+
     return render_template(
         "organizer_organizer_profiles.html",
-        organizers=organizers
+        organizers=organizers, filters=filters
     )
 
 
@@ -1594,7 +1911,7 @@ def organizer_view_organizer_profile(user_id):
 
     if user_id == current_user_id:
         flash("This is your own organizer profile.", "warning")
-        return redirect(url_for("organizer_my_profile"))
+        return redirect(url_for("my_profile"))
 
     if not require_firebase():
         return redirect(url_for("organizer_organizer_profiles"))

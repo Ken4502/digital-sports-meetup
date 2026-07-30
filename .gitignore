@@ -5,4 +5,4 @@ build/
 .vscode/serviceAccountKey.json
 serviceAccountKey.json__pycache__/
 *.pyc
-tests/
+serviceAccountKey.json
