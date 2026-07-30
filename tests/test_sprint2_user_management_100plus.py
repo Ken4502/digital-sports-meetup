@@ -170,7 +170,8 @@ class FakeBatch:
                         current_data[key] = value
                 doc_ref.set(current_data) # Use set to overwrite with updated data
             elif op_type == "delete":
-                # Special handling for user deletion to match how FakeFirestoreDB stores users
+                # Special handling for user deletion to match how FakeFirestoreDB stores users.
+                # The main user collection is a direct attribute of the fake_db, not in the `collections` dict.
                 if doc_ref.collection.name == "users":
                     self.db.collection("users").documents.pop(doc_ref.id, None)
                 else:
