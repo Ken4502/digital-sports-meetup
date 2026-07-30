@@ -5,7 +5,7 @@
     <div class="profile-page-header">
         <div>
             <h1>Participant Profiles</h1>
-            <p>View other participants' sports interests and skill levels.</p>
+            <p>View participants' sports interests and skill levels.</p>
         </div>
         <span class="profile-count">{{ participants|length }} Participants</span>
     </div>
@@ -48,7 +48,7 @@
                     </div>
 
                     <div class="profile-card-footer">
-                        <a class="profile-view-btn" href="{{ url_for('view_participant_profile', user_id=participant.user_id) }}">
+                        <a class="profile-view-btn" href="{{ url_for('organizer_view_participant_profile', user_id=participant.user_id) }}">
                             View Profile
                         </a>
                     </div>
@@ -58,7 +58,7 @@
     {% else %}
         <div class="empty-state-box">
             <h2>No participant profiles found</h2>
-            <p>There are no other active participant accounts available yet.</p>
+            <p>There are no active participant accounts available in Firestore yet.</p>
         </div>
     {% endif %}
 </section>

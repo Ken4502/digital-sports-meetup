@@ -13,7 +13,7 @@
                 <h1>{{ profile.full_name }}</h1>
                 <span class="mini-badge">Participant</span>
                 <p class="profile-detail-subtitle">
-                    Public participant profile information
+                    Participant public profile viewed by organizer
                 </p>
             </div>
         </div>
@@ -57,11 +57,11 @@
 
         <div class="privacy-note-box">
             <strong>Privacy note:</strong>
-            Email, phone number, and password information are hidden from public profile viewing.
+            This page only shows public participant information. Email, phone number, and password information are hidden.
         </div>
 
         <div class="profile-detail-actions">
-            <a class="secondary-btn" href="{{ url_for('participant_profiles') }}">
+            <a class="secondary-btn" href="{{ url_for('organizer_participant_profiles') }}">
                 Back to Participant Profiles
             </a>
         </div>
