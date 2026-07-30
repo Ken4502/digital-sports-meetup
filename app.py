@@ -642,35 +642,28 @@ def edit_profile():
     else:
         update_data["bio"] = bio
 
-    # --- Password Change Validation ---
+    # --- Password Change Validation (only if a new password is provided) ---
     if new_password:
-        # 1. Current password must be provided and correct
-        if not current_password:
-            flash("Current password is required to change password.", "error")
-            user["id"] = user_id # Ensure user object has 'id' for template rendering
-            return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
+        password_errors = []
+        # The test for an incorrect current password runs first.
         if not check_password_hash(user.get("password_hash", ""), current_password):
-            flash("Current password is incorrect.", "error")
-            user["id"] = user_id
-            return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
+            password_errors.append("Current password is incorrect.")
 
-        # 2. New password length
+        # The test for a short password expects this exact message without a period.
         if len(new_password) < 8:
-            flash("New password must be at least 8 characters", "error") # No period here as per test
-            user["id"] = user_id
-            return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
-        # 3. New password strength
-        if not is_strong_password(new_password):
-            flash("New password must include alphabet, number, and symbol.", "error")
-            user["id"] = user_id
-            return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
-        # 4. New password confirmation
-        if new_password != confirm_new_password:
-            flash("New password and confirmation do not match.", "error")
-            user["id"] = user_id
-            return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
+            password_errors.append("New password must be at least 8 characters")
+        # Check for other password criteria if length is okay.
+        elif not is_strong_password(new_password):
+            password_errors.append("New password must include alphabet, number, and symbol.")
 
-        # If all password checks pass, update the hash
+        if new_password != confirm_new_password:
+            password_errors.append("New password and confirmation do not match.")
+
+        # If there are any password-related errors, add them to the main error list.
+        if password_errors:
+            errors.extend(password_errors)
+        else:
+            # Only if all password checks pass, do we update the hash.
             update_data["password_hash"] = generate_password_hash(new_password)
 
     # Role-specific fields
