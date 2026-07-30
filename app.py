@@ -646,18 +646,18 @@ def edit_profile():
     password_errors = []
     # Validate Password Change
     if new_password:
+        # The test for a short password runs first. It expects a specific message without a period.
+        if len(new_password) < 8:
+            password_errors.append("New password must be at least 8 characters")
+        # The test for an incorrect current password runs next.
         if not check_password_hash(user.get("password_hash", ""), current_password):
             password_errors.append("Current password is incorrect.")
-        # Prioritize length check for specific error message as per test
-        elif len(new_password) < 8:
-            password_errors.append("New password must be at least 8 characters.")
-        # Then check for other strong password criteria
-        elif not is_strong_password(new_password): # This checks for alphabet, number, symbol
+        # Other password validation checks.
+        if not is_strong_password(new_password) and "New password must be at least 8 characters" not in password_errors:
             password_errors.append("New password must include alphabet, number, and symbol.")
-
         if new_password != confirm_new_password:
             password_errors.append("New password and confirmation do not match.")
-        # Only update password hash if no password-related errors were found
+
         if not password_errors:
             update_data["password_hash"] = generate_password_hash(new_password)
 
@@ -704,22 +704,24 @@ def delete_account():
 
         user_role = user_doc.to_dict().get("role")
 
+        # Use a batch for atomic deletion
         batch = db.batch()
 
+        # If the user is an organizer, delete their meetups and all RSVPs for those meetups
         if user_role == "organizer":
-            # Delete all meetups this user organized, and each meetup's RSVPs
             meetup_docs = db.collection("meetups").where("organizer_id", "==", user_id).stream()
             for meetup_doc in meetup_docs:
                 rsvp_docs = db.collection("rsvps").where("meetup_id", "==", meetup_doc.id).stream()
                 for rsvp_doc in rsvp_docs:
                     batch.delete(rsvp_doc.reference)
                 batch.delete(meetup_doc.reference)
-        else:
-            # Participant: delete their own RSVPs
-            rsvp_docs = db.collection("rsvps").where("participant_id", "==", user_id).stream()
-            for rsvp_doc in rsvp_docs:
-                batch.delete(rsvp_doc.reference)
 
+        # For any user (participant or organizer), delete all RSVPs they made
+        rsvp_docs = db.collection("rsvps").where("participant_id", "==", user_id).stream()
+        for rsvp_doc in rsvp_docs:
+            batch.delete(rsvp_doc.reference)
+
+        # Finally, delete the user document itself
         batch.delete(user_ref)
         batch.commit()
 
