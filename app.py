@@ -651,8 +651,8 @@ def edit_profile():
             password_errors.append("Current password is incorrect.")
 
         # The test for a short password expects this exact message.
-        if len(new_password) < 8:
-            password_errors.append("New password must be at least 8 characters.")
+        if len(new_password) < 8: # Test expects no period here
+            password_errors.append("New password must be at least 8 characters")
         elif not is_strong_password(new_password):
             password_errors.append("New password must include alphabet, number, and symbol.")
 
