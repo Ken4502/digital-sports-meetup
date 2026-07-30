@@ -314,7 +314,25 @@ def get_register_form_from_request():
 
 
 def is_valid_email(email):
-    return re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) is not None
+    return re.match(
+        r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$",
+        email
+    ) is not None
+
+
+def normalize_phone(phone):
+    return phone.replace(" ", "").replace("-", "").strip()
+
+
+def is_strong_password(password):
+    if len(password) < 8:
+        return False
+
+    has_alphabet = re.search(r"[A-Za-z]", password)
+    has_number = re.search(r"[0-9]", password)
+    has_symbol = re.search(r"[^A-Za-z0-9]", password)
+
+    return has_alphabet and has_number and has_symbol
 
 
 def build_user_id(role, email):
@@ -332,6 +350,18 @@ def email_already_registered(email):
     existing_users = db.collection("users").where("email", "==", email).limit(1).stream()
     return any(True for _ in existing_users)
 
+def phone_already_registered(phone_clean):
+    if db is None:
+        return False
+
+    existing_users = (
+        db.collection("users")
+        .where("phone_clean", "==", phone_clean)
+        .limit(1)
+        .stream()
+    )
+
+    return any(True for _ in existing_users)
 
 def validate_register_form(form_data):
     errors = []
@@ -360,8 +390,8 @@ def validate_register_form(form_data):
 
     if not password:
         errors.append("Password is required.")
-    elif len(password) < 6:
-        errors.append("Password must be at least 6 characters.")
+    elif not is_strong_password(password):
+        errors.append("Password must be at least 8 characters and include alphabet, number, and symbol.")
 
     if password != confirm_password:
         errors.append("Password and confirm password do not match.")
@@ -369,8 +399,14 @@ def validate_register_form(form_data):
     if role not in REGISTER_ROLES:
         errors.append("Please select a valid account role.")
 
-    if phone and not phone.replace("-", "").replace(" ", "").isdigit():
+    phone_clean = normalize_phone(phone)
+
+    if not phone:
+        errors.append("Phone number is required.")
+    elif not phone_clean.isdigit():
         errors.append("Phone number can only contain numbers, spaces, or dashes.")
+    elif len(phone_clean) < 10 or len(phone_clean) > 11:
+        errors.append("Phone number must be 10 to 11 digits.")
 
     if role == "participant":
         if not sport_interest:
@@ -422,8 +458,13 @@ def register():
         form_data = get_register_form_from_request()
         errors = validate_register_form(form_data)
 
+        phone_clean = normalize_phone(form_data["phone"])
+
         if form_data.get("email") and email_already_registered(form_data["email"]):
             errors.append("This email is already registered.")
+
+        if phone_clean and phone_already_registered(phone_clean):
+            errors.append("This phone number is already registered.")
 
         if errors:
             for error in errors:
@@ -448,6 +489,7 @@ def register():
             "password_hash": generate_password_hash(form_data["password"]),
             "role": user_role,
             "phone": form_data["phone"],
+            "phone_clean": phone_clean,
             "sport_interest": form_data["sport_interest"],
             "skill_level": form_data["skill_level"],
             "organization_name": form_data["organization_name"],
@@ -462,6 +504,7 @@ def register():
 
         session["user_id"] = user_id
         session["role"] = user_role
+        session["full_name"] = form_data["full_name"]
 
         flash("Account registered successfully.", "success")
         return redirect(url_for("my_profile"))
@@ -649,8 +692,8 @@ def login():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
 
-        if not email or not password:
-            flash("Email and password are required.", "error")
+        if not is_valid_email(email):
+            flash("Please enter a valid email address.", "error")
             return redirect(url_for("login"))
 
         users_ref = db.collection("users").where("email", "==", email).limit(1).stream()
@@ -667,8 +710,10 @@ def login():
             flash("Invalid credentials.", "error")
             return redirect(url_for("login"))
 
+        session.clear()
         session["user_id"] = user_doc.id
         session["role"] = user.get("role")
+        session["full_name"] = user.get("full_name", "")
         flash("Logged in successfully.", "success")
         return redirect(url_for("index"))
 
@@ -1203,6 +1248,8 @@ def toggle_user_status(user_id):
 # =========================================================
 # Sprint 2 Stage 2
 # SCRUM-113: Participant View Other Participants' Profiles
+# SCRUM-114: Participant View Organizers' Profiles
+# SCRUM-115: Organizer View Own Profile Details
 # =========================================================
 
 def get_demo_other_participants():
@@ -1346,12 +1393,13 @@ def view_participant_profile(user_id):
 
         # Only show public information
         public_profile = {
-            "user_id": participant.get("user_id", ""),
-            "role": participant.get("role", "participant"),
+            "user_id": participant.get("user_id", user_doc.id),
+            "role": "participant",
             "full_name": participant.get("full_name", ""),
             "state": participant.get("state", ""),
             "sport_interest": participant.get("sport_interest", ""),
             "skill_level": participant.get("skill_level", ""),
+            "bio": participant.get("bio", ""),
             "status": participant.get("status", "active"),
         }
 
@@ -1364,6 +1412,230 @@ def view_participant_profile(user_id):
     except Exception as e:
         flash(f"Unable to load participant profile: {e}", "error")
         return redirect(url_for("participant_profiles"))
+
+
+# =========================================================
+# Sprint 2 Stage 3
+# SCRUM-116: Organizer View Participants' Profiles
+# SCRUM-117: Organizer View Other Organizer Profiles
+# =========================================================
+
+@app.route("/organizer/participants")
+def organizer_participant_profiles():
+    """
+    SCRUM-116:
+    Allow organizer to view registered participants' public profiles.
+    """
+
+    if session.get("role") != "organizer":
+        flash("Only organizers can view participant profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        return render_template(
+            "organizer_participant_profiles.html",
+            participants=[]
+        )
+
+    participants = []
+
+    try:
+        users_ref = db.collection("users").where("role", "==", "participant").stream()
+
+        for user_doc in users_ref:
+            participant = user_doc.to_dict()
+            participant["user_id"] = user_doc.id
+
+            if participant.get("status") != "active":
+                continue
+
+            public_participant = {
+                "user_id": participant.get("user_id", user_doc.id),
+                "role": "participant",
+                "full_name": participant.get("full_name", ""),
+                "state": participant.get("state", ""),
+                "sport_interest": participant.get("sport_interest", ""),
+                "skill_level": participant.get("skill_level", ""),
+                "status": participant.get("status", "active"),
+            }
+
+            participants.append(public_participant)
+
+    except Exception as e:
+        flash(f"Unable to load participant profiles: {e}", "error")
+
+    return render_template(
+        "organizer_participant_profiles.html",
+        participants=participants
+    )
+
+
+@app.route("/organizer/participants/<user_id>")
+def organizer_view_participant_profile(user_id):
+    """
+    SCRUM-116:
+    Allow organizer to open one participant's public profile.
+    """
+
+    if session.get("role") != "organizer":
+        flash("Only organizers can view participant profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        return redirect(url_for("organizer_participant_profiles"))
+
+    try:
+        user_doc = db.collection("users").document(user_id).get()
+
+        if not user_doc.exists:
+            flash("Participant profile not found.", "error")
+            return redirect(url_for("organizer_participant_profiles"))
+
+        participant = user_doc.to_dict()
+        participant["user_id"] = user_doc.id
+
+        if participant.get("role") != "participant":
+            flash("This profile is not a participant profile.", "error")
+            return redirect(url_for("organizer_participant_profiles"))
+
+        if participant.get("status") != "active":
+            flash("This participant profile is not active.", "error")
+            return redirect(url_for("organizer_participant_profiles"))
+
+        public_profile = {
+            "user_id": participant.get("user_id", user_doc.id),
+            "role": "participant",
+            "full_name": participant.get("full_name", ""),
+            "state": participant.get("state", ""),
+            "sport_interest": participant.get("sport_interest", ""),
+            "skill_level": participant.get("skill_level", ""),
+            "bio": participant.get("bio", ""),
+            "status": participant.get("status", "active"),
+        }
+
+        return render_template(
+            "organizer_view_participant_profile.html",
+            profile=public_profile
+        )
+
+    except Exception as e:
+        flash(f"Unable to load participant profile: {e}", "error")
+        return redirect(url_for("organizer_participant_profiles"))
+
+
+@app.route("/organizer/organizers")
+def organizer_organizer_profiles():
+    """
+    SCRUM-117:
+    Allow organizer to view other organizers' public profiles.
+    Current organizer's own profile is not shown.
+    """
+
+    if session.get("role") != "organizer":
+        flash("Only organizers can view other organizer profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    if not require_firebase():
+        return render_template(
+            "organizer_organizer_profiles.html",
+            organizers=[]
+        )
+
+    current_user_id = session.get("user_id")
+    organizers = []
+
+    try:
+        users_ref = db.collection("users").where("role", "==", "organizer").stream()
+
+        for user_doc in users_ref:
+            organizer = user_doc.to_dict()
+            organizer["user_id"] = user_doc.id
+
+            if organizer["user_id"] == current_user_id:
+                continue
+
+            if organizer.get("status") != "active":
+                continue
+
+            public_organizer = {
+                "user_id": organizer.get("user_id", user_doc.id),
+                "role": "organizer",
+                "full_name": organizer.get("full_name", ""),
+                "state": organizer.get("state", ""),
+                "organization_name": organizer.get("organization_name", ""),
+                "experience_years": organizer.get("experience_years", 0),
+                "bio": organizer.get("bio", ""),
+                "status": organizer.get("status", "active"),
+            }
+
+            organizers.append(public_organizer)
+
+    except Exception as e:
+        flash(f"Unable to load organizer profiles: {e}", "error")
+
+    return render_template(
+        "organizer_organizer_profiles.html",
+        organizers=organizers
+    )
+
+
+@app.route("/organizer/organizers/<user_id>")
+def organizer_view_organizer_profile(user_id):
+    """
+    SCRUM-117:
+    Allow organizer to open another organizer's public profile.
+    """
+
+    if session.get("role") != "organizer":
+        flash("Only organizers can view other organizer profiles.", "error")
+        return redirect(url_for("my_profile"))
+
+    current_user_id = session.get("user_id")
+
+    if user_id == current_user_id:
+        flash("This is your own organizer profile.", "warning")
+        return redirect(url_for("organizer_my_profile"))
+
+    if not require_firebase():
+        return redirect(url_for("organizer_organizer_profiles"))
+
+    try:
+        user_doc = db.collection("users").document(user_id).get()
+
+        if not user_doc.exists:
+            flash("Organizer profile not found.", "error")
+            return redirect(url_for("organizer_organizer_profiles"))
+
+        organizer = user_doc.to_dict()
+        organizer["user_id"] = user_doc.id
+
+        if organizer.get("role") != "organizer":
+            flash("This profile is not an organizer profile.", "error")
+            return redirect(url_for("organizer_organizer_profiles"))
+
+        if organizer.get("status") != "active":
+            flash("This organizer profile is not active.", "error")
+            return redirect(url_for("organizer_organizer_profiles"))
+
+        public_profile = {
+            "user_id": organizer.get("user_id", user_doc.id),
+            "role": "organizer",
+            "full_name": organizer.get("full_name", ""),
+            "state": organizer.get("state", ""),
+            "organization_name": organizer.get("organization_name", ""),
+            "experience_years": organizer.get("experience_years", 0),
+            "bio": organizer.get("bio", ""),
+            "status": organizer.get("status", "active"),
+        }
+
+        return render_template(
+            "organizer_view_organizer_profile.html",
+            profile=public_profile
+        )
+
+    except Exception as e:
+        flash(f"Unable to load organizer profile: {e}", "error")
+        return redirect(url_for("organizer_organizer_profiles"))
 
 if __name__ == "__main__":
     app.run(debug=True)
