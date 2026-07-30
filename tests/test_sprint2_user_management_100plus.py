@@ -170,8 +170,8 @@ class FakeBatch:
                         current_data[key] = value
                 doc_ref.set(current_data) # Use set to overwrite with updated data
             elif op_type == "delete":
-                # For any document deletion, use the doc_ref's own delete method.
-                # This will correctly remove it from its FakeCollectionReference.documents.
+                # For any document deletion, use the doc_ref's own delete method,
+                # which will correctly remove it from its FakeCollectionReference.documents.
                 doc_ref.delete()
         self.operations = [] # Clear operations after commit
 
