@@ -652,7 +652,7 @@ def edit_profile():
 
         # The test for a short password expects this exact message.
         if len(new_password) < 8:
-            password_errors.append("New password must be at least 8 characters")
+            password_errors.append("New password must be at least 8 characters.")
         elif not is_strong_password(new_password):
             password_errors.append("New password must include alphabet, number, and symbol.")
 
@@ -708,15 +708,15 @@ def delete_account():
         # Use a batch for atomic deletion to ensure data integrity
         batch = db.batch()
 
-        # If the user is an organizer, delete their meetups and all RSVPs for those meetups
+        # If the user is an organizer, find all their meetups to delete them and their RSVPs
         if user_role == "organizer":
             meetup_docs = db.collection("meetups").where("organizer_id", "==", user_id).stream()
             for meetup_doc in meetup_docs:
-                # For each meetup, find and delete all its RSVPs
+                # For each of the organizer's meetups, find and queue all its RSVPs for deletion
                 rsvp_docs = db.collection("rsvps").where("meetup_id", "==", meetup_doc.id).stream()
                 for rsvp_doc in rsvp_docs:
                     batch.delete(rsvp_doc.reference)
-                # After queuing RSVPs for deletion, queue the meetup itself
+                # After handling the RSVPs, queue the meetup document for deletion
                 batch.delete(meetup_doc.reference)
 
         # For any user (participant or organizer), delete all RSVPs they made
