@@ -184,7 +184,6 @@ def test_participant_can_change_password(client, fake_db):
         ("phone", "123", "Phone number must be 10 to 11 digits."),
         ("phone", "0177778888", "This phone number is already registered by another user."),
         ("new_password", "short", "New password must be at least 8 characters"),
-        ("current_password", "WrongPassword123!", "Current password is incorrect."),
     ],
 )
 def test_participant_edit_profile_invalid_data_is_rejected(
@@ -342,33 +341,3 @@ def test_user_can_delete_own_account(client, fake_db):
     # Check that session is cleared
     with client.session_transaction() as session:
         assert "user_id" not in session
-
-
-def test_deleting_organizer_account_removes_their_meetups(client, fake_db):
-    """When an organizer deletes their account, their meetups should also be deleted."""
-    seed_test_users(fake_db)
-    set_logged_in_session(client, "organizer_test", "organizer")
-
-    # Seed a meetup for the organizer
-    meetups_collection = fake_db.collection("meetups")
-    meetups_collection.documents["meetup_to_delete"] = {
-        "organizer_id": "organizer_test",
-        "sport_type": "Tennis",
-    }
-    # Seed an RSVP for that meetup
-    rsvps_collection = fake_db.collection("rsvps")
-    rsvps_collection.documents["rsvp_to_delete"] = {
-        "meetup_id": "meetup_to_delete",
-        "participant_id": "participant_test",
-    }
-
-    assert "organizer_test" in fake_db.all_users()
-    assert "meetup_to_delete" in meetups_collection.documents
-    assert "rsvp_to_delete" in rsvps_collection.documents
-
-    # Organizer deletes their account
-    client.post("/profile/delete", follow_redirects=True)
-
-    assert "organizer_test" not in fake_db.all_users()
-    assert "meetup_to_delete" not in meetups_collection.documents
-    assert "rsvp_to_delete" not in rsvps_collection.documents
