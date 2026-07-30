@@ -6,3 +6,4 @@ build/
 serviceAccountKey.json__pycache__/
 *.pyc
 tests/
+serviceAccountKey.json

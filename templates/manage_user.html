@@ -35,25 +35,31 @@
             <span class="form-badge">{{ user.role | capitalize }}</span>
         </div>
 
-        <div class="detail-grid" style="grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-            <div class="detail-item">
-                <span>Email</span>
-                <strong>{{ user.email }}</strong>
+        <form method="POST" action="{{ url_for('admin_edit_user', user_id=user.id) }}" class="modern-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="{{ user.email or '' }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone</label>
+                    <input type="text" id="phone" name="phone" value="{{ user.phone or '' }}" required>
+                </div>
             </div>
-            <div class="detail-item">
-                <span>Phone</span>
-                <strong>{{ user.phone or 'Not Provided' }}</strong>
+            <div class="form-actions">
+                <button type="submit" class="btn primary-btn">Save Changes</button>
             </div>
-            <div class="detail-item">
-                <span>Status</span>
-                <span class="status-badge {{ user.status }}">
-                    {{ user.status | capitalize }}
-                </span>
-            </div>
-            <div class="detail-item">
-                <span>Joined On</span>
-                <strong>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A' }}</strong>
-            </div>
+        </form>
+
+        <div class="detail-item" style="margin-top: 16px;">
+            <span>Status:</span>
+            <strong class="status-badge {{ user.status }}">{{ user.status | capitalize }}</strong>
+        </div>
+        <div class="detail-item">
+            <span>Joined On:</span>
+            <strong>
+                {{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A' }}
+            </strong>
         </div>
 
         <div class="section-divider" style="margin-top: 20px;">
@@ -83,25 +89,71 @@
     </div>
 </div>
 
-<h2>Upcoming Meetups</h2>
-{% if upcoming_meetups %}
-    <div class="admin-table-card">
-        <table class="admin-table">
-            <!-- Table content remains the same -->
-        </table>
-    </div>
-{% else %}
-    <p>This user has not joined any upcoming meetups.</p>
-{% endif %}
+<div style="margin-top: 40px;">
+    <h2 style="font-size: 24px; color: var(--athle-navy); margin-bottom: 16px;">Upcoming Meetups</h2>
+    {% if upcoming_meetups %}
+        <div class="admin-table-card">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Sport</th>
+                        <th>Date & Time</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for meetup in upcoming_meetups %}
+                        <tr>
+                            <td><strong>{{ meetup.sport_type }}</strong></td>
+                            <td>{{ meetup.meetup_date }}<br><small>{{ meetup.meetup_time }}</small></td>
+                            <td>{{ meetup.location }}</td>
+                            <td><span class="status-badge {{ meetup.status }}">{{ meetup.status | capitalize }}</span></td>
+                            <td>
+                                <a href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}" class="btn table-btn">View</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state" style="padding: 30px; text-align: left; border-radius: 24px;">
+            <p style="margin:0; color: var(--muted-text);">This user has not joined any upcoming meetups.</p>
+        </div>
+    {% endif %}
+</div>
 
-<h2>Past Meetups</h2>
-{% if past_meetups %}
-    <div class="admin-table-card">
-        <table class="admin-table">
-            <!-- Table content remains the same -->
-        </table>
-    </div>
-{% else %}
-    <p>This user has no past meetups.</p>
-{% endif %}
+<div style="margin-top: 40px;">
+    <h2 style="font-size: 24px; color: var(--athle-navy); margin-bottom: 16px;">Past Meetups</h2>
+    {% if past_meetups %}
+        <div class="admin-table-card">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Sport</th>
+                        <th>Date & Time</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for meetup in past_meetups %}
+                        <tr>
+                            <td><strong>{{ meetup.sport_type }}</strong></td>
+                            <td>{{ meetup.meetup_date }}<br><small>{{ meetup.meetup_time }}</small></td>
+                            <td>{{ meetup.location }}</td>
+                            <td><span class="status-badge past">{{ meetup.status | capitalize }}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state" style="padding: 30px; text-align: left; border-radius: 24px;">
+            <p style="margin:0; color: var(--muted-text);">This user has no past meetups.</p>
+        </div>
+    {% endif %}
+</div>
 {% endblock %}

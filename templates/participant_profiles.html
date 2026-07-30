@@ -10,6 +10,46 @@
         <span class="profile-count">{{ participants|length }} Participants</span>
     </div>
 
+    <!-- Filter Form -->
+    <div class="filter-card" style="border-radius: 24px; margin-bottom: 24px;">
+        <form method="GET" action="{{ url_for('participant_profiles') }}" class="modern-form">
+            <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                <div class="form-group">
+                    <label for="keyword">Name</label>
+                    <input type="text" id="keyword" name="keyword" placeholder="Search by name..." value="{{ filters.keyword or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="sport_interest">Sport Interest</label>
+                    <select id="sport_interest" name="sport_interest">
+                        <option value="">All Sports</option>
+                        {% for sport in sport_options %}
+                            <option value="{{ sport }}" {% if filters.sport_interest == sport %}selected{% endif %}>{{ sport }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="skill_level">Skill Level</label>
+                    <select id="skill_level" name="skill_level">
+                        <option value="">All Levels</option>
+                        {% for level in skill_levels %}
+                            <option value="{{ level }}" {% if filters.skill_level == level %}selected{% endif %}>{{ level }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="filter-actions">
+                <a href="{{ url_for('participant_profiles') }}" class="btn cancel-btn">Reset</a>
+                <button type="submit" class="btn primary-btn">Filter</button>
+            </div>
+        </form>
+    </div>
+
+    {% if filters.keyword or filters.sport_interest or filters.skill_level %}
+        <div class="result-summary">
+            <p>Showing <strong>{{ participants|length }}</strong> matching profile(s).</p>
+        </div>
+    {% endif %}
+
     {% if participants %}
         <div class="profile-card-grid">
             {% for participant in participants %}
@@ -58,7 +98,11 @@
     {% else %}
         <div class="empty-state-box">
             <h2>No participant profiles found</h2>
-            <p>There are no other active participant accounts available yet.</p>
+            {% if filters.keyword or filters.sport_interest or filters.skill_level %}
+                <p>No participants match your current filters. Try adjusting your search criteria.</p>
+            {% else %}
+                <p>There are no other active participant accounts available yet.</p>
+            {% endif %}
         </div>
     {% endif %}
 </section>
