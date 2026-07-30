@@ -639,8 +639,8 @@ def edit_profile():
     if new_password:
         if not check_password_hash(user.get("password_hash", ""), current_password):
             errors.append("Current password is incorrect.")
-        if not is_strong_password(new_password):
-            errors.append("New password must be at least 8 characters and include an alphabet, a number, and a symbol.")
+        elif not is_strong_password(new_password):
+            errors.append("New password must be at least 8 characters and include alphabet, number, and symbol.")
         if new_password != confirm_new_password:
             errors.append("New password and confirmation do not match.")
         else:
@@ -657,7 +657,7 @@ def edit_profile():
     if errors:
         for error in errors:
             flash(error, "error")
-        return redirect(url_for("my_profile"))
+        return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS)
 
     user_ref.update(update_data)
     session["full_name"] = full_name # Update session if name changes
