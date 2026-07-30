@@ -537,8 +537,91 @@ def my_profile():
     user = user_doc.to_dict()
     user["id"] = user_doc.id
 
-    return render_template("profile.html", user=user, is_own_profile=True)
+    return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS)
 
+@app.route("/profile/edit", methods=["POST"])
+def edit_profile():
+    user_id = session.get("user_id")
+
+    if not user_id:
+        flash("Please register or log in first.", "error")
+        return redirect(url_for("login"))
+
+    if not require_firebase():
+        return redirect(url_for("my_profile"))
+
+    bio = request.form.get("bio", "").strip()
+
+    if len(bio) > 300:
+        flash("Bio cannot be more than 300 characters.", "error")
+        return redirect(url_for("my_profile"))
+
+    update_data = {
+        "bio": bio,
+        "updated_at": firestore.SERVER_TIMESTAMP,
+    }
+
+    if session.get("role") == "participant":
+        sport_interest = request.form.get("sport_interest", "").strip()
+
+        if sport_interest not in ALLOWED_SPORTS:
+            flash("Please select a valid sport interest.", "error")
+            return redirect(url_for("my_profile"))
+
+        update_data["sport_interest"] = sport_interest
+
+    db.collection("users").document(user_id).update(update_data)
+    flash("Profile updated successfully.", "success")
+    return redirect(url_for("my_profile"))
+
+@app.route("/profile/delete", methods=["POST"])
+def delete_account():
+    user_id = session.get("user_id")
+
+    if not user_id:
+        flash("Please register or log in first.", "error")
+        return redirect(url_for("login"))
+
+    if not require_firebase():
+        return redirect(url_for("my_profile"))
+
+    try:
+        user_ref = db.collection("users").document(user_id)
+        user_doc = user_ref.get()
+
+        if not user_doc.exists:
+            flash("Account not found.", "error")
+            session.clear()
+            return redirect(url_for("index"))
+
+        user_role = user_doc.to_dict().get("role")
+
+        batch = db.batch()
+
+        if user_role == "organizer":
+            # Delete all meetups this user organized, and each meetup's RSVPs
+            meetup_docs = db.collection("meetups").where("organizer_id", "==", user_id).stream()
+            for meetup_doc in meetup_docs:
+                rsvp_docs = db.collection("rsvps").where("meetup_id", "==", meetup_doc.id).stream()
+                for rsvp_doc in rsvp_docs:
+                    batch.delete(rsvp_doc.reference)
+                batch.delete(meetup_doc.reference)
+        else:
+            # Participant: delete their own RSVPs
+            rsvp_docs = db.collection("rsvps").where("participant_id", "==", user_id).stream()
+            for rsvp_doc in rsvp_docs:
+                batch.delete(rsvp_doc.reference)
+
+        batch.delete(user_ref)
+        batch.commit()
+
+        session.clear()
+        flash("Your account has been permanently deleted.", "success")
+        return redirect(url_for("index"))
+
+    except Exception as e:
+        flash(f"An error occurred while deleting your account: {e}", "error")
+        return redirect(url_for("my_profile"))
 
 def validate_edit_meetup_form(form_data):
     """

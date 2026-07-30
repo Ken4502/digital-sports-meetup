@@ -3,6 +3,6 @@ node_modules/
 dist/
 build/
 .vscode/serviceAccountKey.json
-serviceAccountKey.json
-__pycache__/
+serviceAccountKey.json__pycache__/
 *.pyc
+tests/
