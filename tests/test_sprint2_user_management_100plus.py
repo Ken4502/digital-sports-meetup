@@ -46,6 +46,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 flask_module = importlib.import_module("app")
+from firebase_admin import firestore
 
 
 # -----------------------------------------------------------------------------
@@ -78,6 +79,9 @@ class FakeDocumentReference:
 
     def get(self) -> FakeDocumentSnapshot:
         return FakeDocumentSnapshot(self.id, self.collection.documents.get(self.id))
+
+    def delete(self) -> None:
+        self.collection.documents.pop(self.id, None)
 
 
 class FakeQuery:
@@ -133,6 +137,45 @@ class FakeCollectionReference:
         )
 
 
+class FakeBatch:
+    def __init__(self, db: "FakeFirestoreDB"):
+        self.db = db
+        self.operations = []
+
+    def set(self, doc_ref: FakeDocumentReference, data: Dict[str, Any]) -> None:
+        self.operations.append(("set", doc_ref, data))
+
+    def update(self, doc_ref: FakeDocumentReference, data: Dict[str, Any]) -> None:
+        self.operations.append(("update", doc_ref, data))
+
+    def delete(self, doc_ref: FakeDocumentReference) -> None:
+        self.operations.append(("delete", doc_ref))
+
+    def commit(self) -> None:
+        for op_type, doc_ref, *args in self.operations:
+            if op_type == "set":
+                doc_ref.set(args[0])
+            elif op_type == "update":
+                # Handle firestore.Increment for updates
+                data = args[0]
+                current_data = doc_ref.get().to_dict()
+                for key, value in data.items():
+                    if isinstance(value, firestore.Increment):
+                        current_data[key] = current_data.get(key, 0) + value.value
+                    elif isinstance(value, firestore.ArrayUnion):
+                        current_data[key] = list(set(current_data.get(key, []) + value.values))
+                    elif isinstance(value, firestore.ArrayRemove):
+                        current_data[key] = [item for item in current_data.get(key, []) if item not in value.values]
+                    else:
+                        current_data[key] = value
+                doc_ref.set(current_data) # Use set to overwrite with updated data
+            elif op_type == "delete":
+                # For any document deletion, use the doc_ref's own delete method.
+                # This will correctly remove it from its FakeCollectionReference's documents dictionary.
+                doc_ref.delete()
+        self.operations = [] # Clear operations after commit
+
+
 class FakeFirestoreDB:
     def __init__(self):
         self.collections: Dict[str, FakeCollectionReference] = {
@@ -143,6 +186,9 @@ class FakeFirestoreDB:
         if name not in self.collections:
             self.collections[name] = FakeCollectionReference(name)
         return self.collections[name]
+
+    def batch(self) -> FakeBatch:
+        return FakeBatch(self)
 
     def seed_user(self, user_id: str, **overrides: Any) -> None:
         role = overrides.get("role", "participant")

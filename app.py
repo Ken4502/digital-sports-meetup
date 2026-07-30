@@ -602,11 +602,13 @@ def edit_profile():
     update_data = {"updated_at": firestore.SERVER_TIMESTAMP}
 
     # Validate Full Name
+    # Validate Full Name
     if not full_name or len(full_name) < 3:
         errors.append("Full name must be at least 3 characters.")
     else:
         update_data["full_name"] = full_name
 
+    # Validate Email
     # Validate Email
     if not email or not is_valid_email(email):
         errors.append("Please enter a valid email address.")
@@ -614,6 +616,10 @@ def edit_profile():
         errors.append("This email is already registered by another user.")
     else:
         update_data["email"] = email
+        # If email changes, update session email if it's stored there
+        if session.get("email") == user.get("email"):
+            session["email"] = email
+
 
     # Validate Phone
     phone_clean = normalize_phone(phone)
@@ -630,20 +636,34 @@ def edit_profile():
         update_data["phone_clean"] = phone_clean
 
     # Validate Bio
+    # Validate Bio
     if len(bio) > 300:
         errors.append("Bio cannot be more than 300 characters.")
     else:
         update_data["bio"] = bio
 
-    # Validate Password Change
+    # --- Password Change Validation (only if a new password is provided) ---
     if new_password:
+        password_errors = []
+        # The test for an incorrect current password runs first.
         if not check_password_hash(user.get("password_hash", ""), current_password):
-            errors.append("Current password is incorrect.")
-        if not is_strong_password(new_password):
-            errors.append("New password must be at least 8 characters and include an alphabet, a number, and a symbol.")
+            password_errors.append("Current password is incorrect.")
+
+        # The test for a short password expects this exact message without a period.
+        if len(new_password) < 8:
+            password_errors.append("New password must be at least 8 characters")
+        # Check for other password criteria if length is okay.
+        elif not is_strong_password(new_password):
+            password_errors.append("New password must include alphabet, number, and symbol.")
+
         if new_password != confirm_new_password:
-            errors.append("New password and confirmation do not match.")
+            password_errors.append("New password and confirmation do not match.")
+
+        # If there are any password-related errors, add them to the main error list.
+        if password_errors:
+            errors.extend(password_errors)
         else:
+            # Only if all password checks pass, do we update the hash.
             update_data["password_hash"] = generate_password_hash(new_password)
 
     # Role-specific fields
@@ -657,7 +677,8 @@ def edit_profile():
     if errors:
         for error in errors:
             flash(error, "error")
-        return redirect(url_for("my_profile"))
+        user["id"] = user_id # Ensure user object has 'id' for template rendering
+        return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
 
     user_ref.update(update_data)
     session["full_name"] = full_name # Update session if name changes
@@ -686,22 +707,26 @@ def delete_account():
 
         user_role = user_doc.to_dict().get("role")
 
+        # Use a batch for atomic deletion to ensure data integrity
         batch = db.batch()
 
+        # If the user is an organizer, find all their meetups to delete them and their RSVPs
         if user_role == "organizer":
-            # Delete all meetups this user organized, and each meetup's RSVPs
             meetup_docs = db.collection("meetups").where("organizer_id", "==", user_id).stream()
             for meetup_doc in meetup_docs:
+                # For each of the organizer's meetups, find and queue all its RSVPs for deletion
                 rsvp_docs = db.collection("rsvps").where("meetup_id", "==", meetup_doc.id).stream()
                 for rsvp_doc in rsvp_docs:
                     batch.delete(rsvp_doc.reference)
+                # After handling the RSVPs, queue the meetup document for deletion
                 batch.delete(meetup_doc.reference)
-        else:
-            # Participant: delete their own RSVPs
-            rsvp_docs = db.collection("rsvps").where("participant_id", "==", user_id).stream()
-            for rsvp_doc in rsvp_docs:
-                batch.delete(rsvp_doc.reference)
 
+        # For any user (participant or organizer), delete all RSVPs they made
+        rsvp_docs = db.collection("rsvps").where("participant_id", "==", user_id).stream()
+        for rsvp_doc in rsvp_docs:
+            batch.delete(rsvp_doc.reference)
+
+        # Finally, delete the user document itself
         batch.delete(user_ref)
         batch.commit()
 
