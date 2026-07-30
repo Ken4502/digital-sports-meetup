@@ -602,11 +602,13 @@ def edit_profile():
     update_data = {"updated_at": firestore.SERVER_TIMESTAMP}
 
     # Validate Full Name
+    # Validate Full Name
     if not full_name or len(full_name) < 3:
         errors.append("Full name must be at least 3 characters.")
     else:
         update_data["full_name"] = full_name
 
+    # Validate Email
     # Validate Email
     if not email or not is_valid_email(email):
         errors.append("Please enter a valid email address.")
@@ -614,6 +616,10 @@ def edit_profile():
         errors.append("This email is already registered by another user.")
     else:
         update_data["email"] = email
+        # If email changes, update session email if it's stored there
+        if session.get("email") == user.get("email"):
+            session["email"] = email
+
 
     # Validate Phone
     phone_clean = normalize_phone(phone)
@@ -630,20 +636,29 @@ def edit_profile():
         update_data["phone_clean"] = phone_clean
 
     # Validate Bio
+    # Validate Bio
     if len(bio) > 300:
         errors.append("Bio cannot be more than 300 characters.")
     else:
         update_data["bio"] = bio
 
     # Validate Password Change
+    password_errors = []
+    # Validate Password Change
     if new_password:
         if not check_password_hash(user.get("password_hash", ""), current_password):
-            errors.append("Current password is incorrect.")
-        elif not is_strong_password(new_password):
-            errors.append("New password must be at least 8 characters and include alphabet, number, and symbol.")
+            password_errors.append("Current password is incorrect.")
+        # Prioritize length check for specific error message as per test
+        elif len(new_password) < 8:
+            password_errors.append("New password must be at least 8 characters.")
+        # Then check for other strong password criteria
+        elif not is_strong_password(new_password): # This checks for alphabet, number, symbol
+            password_errors.append("New password must include alphabet, number, and symbol.")
+
         if new_password != confirm_new_password:
-            errors.append("New password and confirmation do not match.")
-        else:
+            password_errors.append("New password and confirmation do not match.")
+        # Only update password hash if no password-related errors were found
+        if not password_errors:
             update_data["password_hash"] = generate_password_hash(new_password)
 
     # Role-specific fields
@@ -654,10 +669,13 @@ def edit_profile():
         else:
             update_data["sport_interest"] = sport_interest
 
+    errors.extend(password_errors) # Add collected password errors to the main list
+
     if errors:
         for error in errors:
             flash(error, "error")
-        return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS)
+        user["id"] = user_id # Ensure user object has 'id' for template rendering
+        return render_template("profile.html", user=user, is_own_profile=True, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
 
     user_ref.update(update_data)
     session["full_name"] = full_name # Update session if name changes
