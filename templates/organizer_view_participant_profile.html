@@ -62,7 +62,8 @@
 
         <details class="report-section">
             <summary class="report-toggle">Report Abuse</summary>
-            <form method="POST" action="{{ url_for('report_profile', user_id=profile.user_id) }}" class="report-form">
+            <form method="POST" action="{{ url_for('report_profile') }}" class="report-form">
+                <input type="hidden" name="user_id" value="{{ profile.user_id }}">
                 <textarea name="reason" rows="3" placeholder="Describe the issue with this profile..." required></textarea>
                 <button type="submit" class="btn outline-btn">Submit Report</button>
             </form>

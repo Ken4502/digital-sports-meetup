@@ -194,7 +194,7 @@ def base_meetup_form(**overrides):
     data = {
         "sport_type": "Badminton",
         "capacity": "10",
-        "meetup_date": FUTURE_DATE,
+        "meetup_date": get_dynamic_meetup_date(1), # Ensure it's always in the future relative to FIXED_NOW
         "meetup_time": FUTURE_TIME,
         "location": "",
         "state": "Penang",
