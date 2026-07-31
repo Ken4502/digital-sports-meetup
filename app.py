@@ -1622,8 +1622,8 @@ def view_participant_profile(user_id):
         }
 
         return render_template(
-            "participant_detail.html",
-            profile=public_profile,
+            "public_profile.html",
+            user=public_profile,
             is_demo=False
         )
 
@@ -1722,8 +1722,8 @@ def participant_view_organizer_profile(user_id):
         }
 
         return render_template(
-            "organizer_detail.html",
-            profile=public_profile
+            "public_profile.html",
+            user=public_profile
         )
 
     except Exception as e:
@@ -1849,8 +1849,8 @@ def organizer_view_participant_profile(user_id):
         }
 
         return render_template(
-            "participant_detail.html",
-            profile=public_profile
+            "public_profile.html",
+            user=public_profile
         )
 
     except Exception as e:
@@ -1974,8 +1974,8 @@ def organizer_view_organizer_profile(user_id):
         }
 
         return render_template(
-            "organizer_detail.html",
-            profile=public_profile
+            "public_profile.html",
+            user=public_profile
         )
 
     except Exception as e:
