@@ -49,6 +49,14 @@
             Email and phone number are hidden from public view.
         </div>
 
+        <details class="report-section">
+            <summary class="report-toggle">Report Abuse</summary>
+            <form method="POST" action="{{ url_for('report_profile', user_id=profile.user_id) }}" class="report-form">
+                <textarea name="reason" rows="3" placeholder="Describe the issue with this profile..." required></textarea>
+                <button type="submit" class="btn outline-btn">Submit Report</button>
+            </form>
+        </details>
+
         <div class="profile-detail-actions">
             <a class="secondary-btn" href="{{ url_for('participant_organizer_profiles') }}">
                 Back to Organizer Profiles
