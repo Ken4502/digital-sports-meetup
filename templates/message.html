@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="empty-state">
+    <div class="empty-icon">⚠️</div>
+    <h2>{{ message | default("An unexpected error occurred.") }}</h2>
+    <p>Please go back or try again.</p>
+    <a class="btn primary-btn" href="{{ url_for('index') }}">Go to Home</a>
+</section>
+{% endblock %}

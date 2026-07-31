@@ -1485,13 +1485,12 @@ def participant_profiles():
     Allow a registered participant to view other participants' profiles.
     Only public information is shown.
     """
-
     current_role = session.get("role")
     current_user_id = session.get("user_id")
 
-    if current_role not in ["participant", "organizer"]:
+    if current_role != "participant":
         flash("You must be logged in to view participant profiles.", "error")
-        return redirect(url_for("my_profile"))
+        return render_template("message.html", message="Only participants can view this page.")
 
     if not require_firebase():
         demo_participants = get_demo_other_participants()
@@ -1565,23 +1564,21 @@ def participant_profiles():
     )
 
 
-@app.route("/participants/<user_id>")
+@app.route("/participants/<user_id>", strict_slashes=False)
 def view_participant_profile(user_id):
     """
     SCRUM-113:
     Allow participant to open and view another participant's public profile.
     """
 
-    current_role = session.get("role")
     current_user_id = session.get("user_id")
-
     if not current_user_id:
         flash("You must be logged in to view participant profiles.", "error")
-        return redirect(url_for("my_profile"))
+        return redirect(url_for("login", next=request.path))
 
     if user_id == current_user_id:
         flash("This is your own profile. Redirected to My Profile.", "warning")
-        return redirect(url_for("my_profile"))
+        return render_template("message.html", message="This is your own profile. Please use the 'My Profile' page to view or edit it.")
 
     if not require_firebase():
         demo_profile = get_demo_other_participants()[0]
@@ -1601,13 +1598,13 @@ def view_participant_profile(user_id):
         participant = user_doc.to_dict()
         participant["user_id"] = user_doc.id
 
-        if participant.get("role") != "participant":
+        if participant.get("role") != "participant": # <--- This was the suggested fix for role mismatch
             flash("This profile is not a participant profile.", "error")
-            return redirect(url_for("participant_profiles"))
+            return render_template("message.html", message="This profile is not a participant profile.")
 
-        if participant.get("status") != "active":
+        if participant.get("status") != "active": # <--- This was the suggested fix for inactive status
             flash("This participant profile is not active.", "error")
-            return redirect(url_for("participant_profiles"))
+            return render_template("message.html", message="This participant profile is not active.")
 
         # Only show public information
         public_profile = {
@@ -1638,8 +1635,8 @@ def participant_organizer_profiles():
     Allow a registered user (participant or organizer) to view a list of public organizer profiles.
     """
     if session.get("role") not in ["participant", "organizer"]:
-        flash("You must be logged in to view organizer profiles.", "error")
-        return redirect(url_for("login"))
+        flash("You must be logged in to view organizer profiles.", "error") # This flash is redundant if redirecting to login
+        return redirect(url_for("login", next=request.path))
     # Filter logic
     keyword = request.args.get("keyword", "").strip().lower()
 
@@ -1682,17 +1679,17 @@ def participant_organizer_profiles():
     return render_template("participant_organizer_profiles.html", organizers=organizers, filters=filters)
 
 
-@app.route("/organizers/<user_id>")
+@app.route("/organizers/<user_id>", strict_slashes=False)
 def participant_view_organizer_profile(user_id):
     """
     Allow a participant to view a single organizer's public profile.
     """
-    if session.get("role") not in ["participant", "organizer"]:
-        flash("You must be logged in to view this profile.", "error")
-        return redirect(url_for("my_profile"))
+    if not session.get("user_id"):
+        flash("You must be logged in to view this profile.", "error") # This flash is redundant if redirecting to login
+        return redirect(url_for("login", next=request.path))
 
     if not require_firebase():
-        return redirect(url_for("participant_organizer_profiles"))
+        return render_template("message.html", message="Database connection failed.")
 
     try:
         user_doc = db.collection("users").document(user_id).get()
@@ -1704,12 +1701,12 @@ def participant_view_organizer_profile(user_id):
         organizer = user_doc.to_dict()
 
         if organizer.get("role") != "organizer":
-            flash("This profile is not an organizer profile.", "error")
-            return redirect(url_for("participant_organizer_profiles"))
+            flash("This profile is not an organizer profile.", "error") # This flash is redundant if rendering message
+            return render_template("message.html", message="This profile is not an organizer profile.")
 
         if organizer.get("status") != "active":
-            flash("This organizer profile is not active.", "error")
-            return redirect(url_for("participant_organizer_profiles"))
+            flash("This organizer profile is not active.", "error") # This flash is redundant if rendering message
+            return render_template("message.html", message="This organizer profile is not active.")
 
         public_profile = {
             "user_id": user_doc.id,
@@ -1744,9 +1741,9 @@ def organizer_participant_profiles():
     Allow organizer to view registered participants' public profiles.
     """
 
-    if session.get("role") != "organizer":
+    if session.get("role") != "organizer": # This flash is redundant if redirecting to login
         flash("Only organizers can view participant profiles.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("login", next=request.path))
 
     if not require_firebase():
         return render_template("organizer_participant_profiles.html", participants=[], filters={}, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
@@ -1806,19 +1803,18 @@ def organizer_participant_profiles():
     )
 
 
-@app.route("/organizer/participants/<user_id>")
+@app.route("/organizer/participants/<user_id>", strict_slashes=False)
 def organizer_view_participant_profile(user_id):
     """
     SCRUM-116:
     Allow organizer to open one participant's public profile.
     """
-
-    if session.get("role") != "organizer":
+    if session.get("role") != "organizer": # This flash is redundant if redirecting to login
         flash("Only organizers can view participant profiles.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("login", next=request.path))
 
     if not require_firebase():
-        return redirect(url_for("organizer_participant_profiles"))
+        return render_template("message.html", message="Database connection failed.")
 
     try:
         user_doc = db.collection("users").document(user_id).get()
@@ -1830,13 +1826,13 @@ def organizer_view_participant_profile(user_id):
         participant = user_doc.to_dict()
         participant["user_id"] = user_doc.id
 
-        if participant.get("role") != "participant":
+        if participant.get("role") != "participant": # This flash is redundant if rendering message
             flash("This profile is not a participant profile.", "error")
-            return redirect(url_for("organizer_participant_profiles"))
+            return render_template("message.html", message="This profile is not a participant profile.")
 
-        if participant.get("status") != "active":
+        if participant.get("status") != "active": # This flash is redundant if rendering message
             flash("This participant profile is not active.", "error")
-            return redirect(url_for("organizer_participant_profiles"))
+            return render_template("message.html", message="This participant profile is not active.")
 
         public_profile = {
             "user_id": participant.get("user_id", user_doc.id),
@@ -1867,9 +1863,9 @@ def organizer_organizer_profiles():
     Current organizer's own profile is not shown.
     """
 
-    if session.get("role") != "organizer":
+    if session.get("role") != "organizer": # This flash is redundant if redirecting to login
         flash("Only organizers can view other organizer profiles.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("login", next=request.path))
 
     if not require_firebase():
         return render_template("organizer_organizer_profiles.html", organizers=[], filters={})
@@ -1926,22 +1922,21 @@ def organizer_organizer_profiles():
     )
 
 
-@app.route("/organizer/organizers/<user_id>")
+@app.route("/organizer/organizers/<user_id>", strict_slashes=False)
 def organizer_view_organizer_profile(user_id):
     """
     SCRUM-117:
     Allow organizer to open another organizer's public profile.
     """
-
-    if session.get("role") != "organizer":
+    if session.get("role") != "organizer": # This flash is redundant if redirecting to login
         flash("Only organizers can view other organizer profiles.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("login", next=request.path))
 
     current_user_id = session.get("user_id")
 
     if user_id == current_user_id:
         flash("This is your own organizer profile.", "warning")
-        return redirect(url_for("my_profile"))
+        return render_template("message.html", message="This is your own organizer profile. Please use the 'My Profile' page to view or edit it.")
 
     if not require_firebase():
         return redirect(url_for("organizer_organizer_profiles"))
@@ -1956,13 +1951,13 @@ def organizer_view_organizer_profile(user_id):
         organizer = user_doc.to_dict()
         organizer["user_id"] = user_doc.id
 
-        if organizer.get("role") != "organizer":
+        if organizer.get("role") != "organizer": # This flash is redundant if rendering message
             flash("This profile is not an organizer profile.", "error")
-            return redirect(url_for("organizer_organizer_profiles"))
+            return render_template("message.html", message="This profile is not an organizer profile.")
 
-        if organizer.get("status") != "active":
+        if organizer.get("status") != "active": # This flash is redundant if rendering message
             flash("This organizer profile is not active.", "error")
-            return redirect(url_for("organizer_organizer_profiles"))
+            return render_template("message.html", message="This organizer profile is not active.")
 
         public_profile = {
             "user_id": organizer.get("user_id", user_doc.id),
