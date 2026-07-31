@@ -1489,9 +1489,8 @@ def participant_profiles():
     current_role = session.get("role")
     current_user_id = session.get("user_id")
 
-    # This page is now shared between participant and organizer roles
     if current_role not in ["participant", "organizer"]:
-        flash("Only participants can view other participants' profiles.", "error")
+        flash("You must be logged in to view participant profiles.", "error")
         return redirect(url_for("my_profile"))
 
     if not require_firebase():
@@ -1576,7 +1575,7 @@ def view_participant_profile(user_id):
     current_role = session.get("role")
     current_user_id = session.get("user_id")
 
-    if current_role != "participant":
+    if current_role not in ["participant", "organizer"]:
         flash("Only participants can view other participants' profiles.", "error")
         return redirect(url_for("my_profile"))
 
