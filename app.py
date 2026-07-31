@@ -10,6 +10,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"
 
+# Disable strict slashes to prevent 302 redirects on trailing slashes
+app.url_map.strict_slashes = False
+
 # =========================================================
 # Firebase Connection
 # Put serviceAccountKey.json in the same folder as app.py.
