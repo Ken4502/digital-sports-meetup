@@ -1485,11 +1485,10 @@ def participant_profiles():
     Allow a registered participant to view other participants' profiles.
     Only public information is shown.
     """
-    current_role = session.get("role")
     current_user_id = session.get("user_id")
 
-    if current_role != "participant":
-        flash("You must be logged in to view participant profiles.", "error")
+    if not current_user_id:
+        flash("You must be logged in to view this page.", "error")
         return render_template("message.html", message="Only participants can view this page.")
 
     if not require_firebase():
@@ -1593,16 +1592,16 @@ def view_participant_profile(user_id):
 
         if not user_doc.exists:
             flash("Participant profile not found.", "error")
-            return redirect(url_for("participant_profiles"))
+            return render_template("message.html", message="Participant profile not found."), 200
 
         participant = user_doc.to_dict()
         participant["user_id"] = user_doc.id
 
-        if participant.get("role") != "participant": # <--- This was the suggested fix for role mismatch
+        if participant.get("role") != "participant":
             flash("This profile is not a participant profile.", "error")
             return render_template("message.html", message="This profile is not a participant profile.")
 
-        if participant.get("status") != "active": # <--- This was the suggested fix for inactive status
+        if participant.get("status") != "active":
             flash("This participant profile is not active.", "error")
             return render_template("message.html", message="This participant profile is not active.")
 
@@ -1696,7 +1695,7 @@ def participant_view_organizer_profile(user_id):
 
         if not user_doc.exists:
             flash("Organizer profile not found.", "error")
-            return redirect(url_for("participant_organizer_profiles"))
+            return render_template("message.html", message="Organizer profile not found."), 200
 
         organizer = user_doc.to_dict()
 
@@ -1821,16 +1820,16 @@ def organizer_view_participant_profile(user_id):
 
         if not user_doc.exists:
             flash("Participant profile not found.", "error")
-            return redirect(url_for("organizer_participant_profiles"))
+            return render_template("message.html", message="Participant profile not found."), 200
 
         participant = user_doc.to_dict()
         participant["user_id"] = user_doc.id
 
-        if participant.get("role") != "participant": # This flash is redundant if rendering message
+        if participant.get("role") != "participant":
             flash("This profile is not a participant profile.", "error")
             return render_template("message.html", message="This profile is not a participant profile.")
 
-        if participant.get("status") != "active": # This flash is redundant if rendering message
+        if participant.get("status") != "active":
             flash("This participant profile is not active.", "error")
             return render_template("message.html", message="This participant profile is not active.")
 
@@ -1946,16 +1945,16 @@ def organizer_view_organizer_profile(user_id):
 
         if not user_doc.exists:
             flash("Organizer profile not found.", "error")
-            return redirect(url_for("organizer_organizer_profiles"))
+            return render_template("message.html", message="Organizer profile not found."), 200
 
         organizer = user_doc.to_dict()
         organizer["user_id"] = user_doc.id
 
-        if organizer.get("role") != "organizer": # This flash is redundant if rendering message
+        if organizer.get("role") != "organizer":
             flash("This profile is not an organizer profile.", "error")
             return render_template("message.html", message="This profile is not an organizer profile.")
 
-        if organizer.get("status") != "active": # This flash is redundant if rendering message
+        if organizer.get("status") != "active":
             flash("This organizer profile is not active.", "error")
             return render_template("message.html", message="This organizer profile is not active.")
 
