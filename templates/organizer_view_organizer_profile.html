@@ -1,60 +1,53 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="profile-detail-page">
-    <div class="profile-detail-card">
-        <div class="profile-detail-top">
-            <div class="avatar-circle large-avatar">
-                {{ profile.full_name[:1] }}
-            </div>
-
+<div class="detail-layout">
+    <div class="detail-main-card">
+        <div class="detail-header">
             <div>
-                <h1>{{ profile.full_name }}</h1>
-                <span class="mini-badge organizer-badge">Organizer</span>
+                <span class="sport-badge">{{ meetup.sport_type }}</span>
+                <h1>{{ meetup.sport_type }} Meetup</h1>
+                <p>{{ meetup.location }}</p>
             </div>
+
+            {% if meetup.is_full %}
+                <span class="status-badge full">Full</span>
+            {% else %}
+                <span class="status-badge active">Available</span>
+            {% endif %}
         </div>
 
-        <div class="profile-detail-grid">
-            <div class="profile-detail-item">
-                <span>Organization</span>
-                <strong>{{ profile.organization_name or "Not provided" }}</strong>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span>Date</span>
+                <strong>{{ meetup.meetup_date }}</strong>
             </div>
 
-            <div class="profile-detail-item">
-                <span>Experience</span>
-                <strong>{{ profile.experience_years or 0 }} years</strong>
+            <div class="detail-item">
+                <span>Time</span>
+                <strong>{{ meetup.meetup_time }}</strong>
             </div>
 
-            <div class="profile-detail-item">
+            <div class="detail-item">
+                <span>Venue</span>
+                <strong>{{ meetup.venue_name }}</strong>
+            </div>
+
+            <div class="detail-item">
                 <span>State</span>
-                <strong>{{ profile.state or "Not provided" }}</strong>
+                <strong>{{ meetup.state }}</strong>
             </div>
 
-            <div class="profile-detail-item">
-                <span>Status</span>
-                <strong>{{ profile.status or "active" }}</strong>
+            <div class="detail-item">
+                <span>Address</span>
+                <strong>{{ meetup.address }}</strong>
             </div>
-        </div>
 
-        <div class="bio-box">
-            <h2>Organizer Bio</h2>
-            <p>{{ profile.bio or "No bio provided." }}</p>
-        </div>
-
-        <details class="report-section">
-            <summary class="report-toggle">Report Abuse</summary>
-            <form method="POST" action="{{ url_for('report_profile') }}" class="report-form">
-                <input type="hidden" name="user_id" value="{{ profile.user_id }}">
-                <textarea name="reason" rows="3" placeholder="Describe the issue with this profile..." required></textarea>
-                <button type="submit" class="btn outline-btn">Submit Report</button>
-            </form>
-        </details>
-
-        <div class="profile-detail-actions">
-            <a class="secondary-btn" href="{{ url_for('organizer_organizer_profiles') }}">
-                Back
-            </a>
+            <div class="detail-item">
+                <span>Postcode</span>
+                <strong>{{ meetup.postcode or 'N/A' }}</strong>
+            </div>
         </div>
     </div>
-</section>
+</div>
 {% endblock %}

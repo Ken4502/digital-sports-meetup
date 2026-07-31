@@ -1622,7 +1622,7 @@ def view_participant_profile(user_id):
         }
 
         return render_template(
-            "public_participant_profile.html",
+            "participant_detail.html",
             profile=public_profile,
             is_demo=False
         )
@@ -1722,7 +1722,7 @@ def participant_view_organizer_profile(user_id):
         }
 
         return render_template(
-            "participant_view_organizer_profile.html",
+            "organizer_detail.html",
             profile=public_profile
         )
 
@@ -1849,7 +1849,7 @@ def organizer_view_participant_profile(user_id):
         }
 
         return render_template(
-            "organizer_view_participant_profile.html",
+            "participant_detail.html",
             profile=public_profile
         )
 
@@ -1974,7 +1974,7 @@ def organizer_view_organizer_profile(user_id):
         }
 
         return render_template(
-            "organizer_view_organizer_profile.html",
+            "organizer_detail.html",
             profile=public_profile
         )
 
