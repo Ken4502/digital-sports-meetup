@@ -738,29 +738,6 @@ def delete_account():
         flash(f"An error occurred while deleting your account: {e}", "error")
         return redirect(url_for("my_profile"))
 
-@app.route("/profile/<user_id>/report", methods=["POST"])
-def report_profile(user_id):
-    if "role" not in session:
-        abort(403)
-
-    reason = request.form.get("reason", "").strip()
-    if not reason:
-        flash("Please provide a reason for the report.", "error")
-        return redirect(request.referrer or url_for("index"))
-
-    db.collection("reports").add({
-        "type": "profile",
-        "target_id": user_id,
-        "reported_by": session.get("user_id"),
-        "reporter_role": session.get("role"),
-        "reason": reason,
-        "status": "pending",
-        "created_at": firestore.SERVER_TIMESTAMP
-    })
-
-    flash("Report submitted. An admin will review it shortly.", "success")
-    return redirect(request.referrer or url_for("index"))
-
 def validate_edit_meetup_form(form_data):
     """
     A more lenient validation for the edit form.
@@ -1179,14 +1156,15 @@ def leave_meetup(meetup_id):
 @app.route("/manage-meetups")
 def manage_meetups():
     """
-    Admin page to view all meetups (active, past, etc.) and meetup reports.
+    Admin page to view all meetups (active, past, etc.).
+    This is a new route to fix the BuildError.
     """
     if session.get("role") != "admin":
         flash("You must be an admin to access this page.", "error")
         return redirect(url_for("index"))
 
     if not require_firebase():
-        return render_template("manage_meetups.html", meetups=[], reports=[])
+        return render_template("manage_meetups.html", meetups=[])
 
     all_meetups = []
     try:
@@ -1198,26 +1176,7 @@ def manage_meetups():
     except Exception as e:
         flash(f"An error occurred: {e}", "error")
 
-    all_reports = []
-    try:
-        report_docs = db.collection("reports").stream()
-        for doc in report_docs:
-            report = doc.to_dict()
-
-            if report.get("type") != "meetup":
-                continue
-
-            report["id"] = doc.id
-            if report.get("created_at"):
-                report["created_at"] = report["created_at"].strftime("%d/%m/%y")
-            all_reports.append(report)
-
-        all_reports.sort(key=lambda r: r.get("status") != "pending")
-
-    except Exception as e:
-        flash(f"An error occurred while fetching reports: {e}", "error")
-
-    return render_template("manage_meetups.html", meetups=all_meetups, reports=all_reports)
+    return render_template("manage_meetups.html", meetups=all_meetups)
 
 
 @app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
@@ -1292,7 +1251,6 @@ def edit_meetup(meetup_id):
 def delete_meetup(meetup_id):
     """
     Admin-only route to permanently delete a meetup and its RSVPs.
-    Also resolves any reports tied to this meetup.
     """
     if session.get("role") != "admin":
         flash("You do not have permission to delete meetups.", "error")
@@ -1307,29 +1265,17 @@ def delete_meetup(meetup_id):
             flash("Meetup not found or already deleted.", "error")
             return redirect(url_for("manage_meetups"))
 
+        # Best practice: Delete associated data in a batch operation.
+        # This finds all RSVPs for the meetup and deletes them along with the meetup itself.
         batch = db.batch()
-
         rsvp_docs = db.collection("rsvps").where("meetup_id", "==", meetup_id).stream()
         for doc in rsvp_docs:
             batch.delete(doc.reference)
 
-        # Auto-resolve any reports tied to this meetup
-        report_docs = (
-            db.collection("reports")
-            .where("target_id", "==", meetup_id)
-            .where("type", "==", "meetup")
-            .stream()
-        )
-        for doc in report_docs:
-            batch.update(doc.reference, {
-                "status": "resolved",
-                "updated_at": firestore.SERVER_TIMESTAMP
-            })
-
         batch.delete(meetup_ref)
         batch.commit()
 
-        flash("Meetup and all associated RSVPs deleted, and related reports resolved.", "success")
+        flash("Meetup and all associated RSVPs deleted successfully.", "success")
 
     except Exception as e:
         flash(f"An error occurred while deleting the meetup: {e}", "error")
@@ -1347,7 +1293,7 @@ def admin_dashboard():
         return redirect(url_for("index"))
 
     if not require_firebase():
-        return render_template("admin_dashboard.html", users=[], reports=[])
+        return render_template("admin_dashboard.html", users=[])
 
     all_users = []
     try:
@@ -1361,27 +1307,8 @@ def admin_dashboard():
     except Exception as e:
         flash(f"An error occurred while fetching users: {e}", "error")
 
-    all_reports = []
-    try:
-        report_docs = db.collection("reports").stream()
-        for doc in report_docs:
-            report = doc.to_dict()
+    return render_template("admin_dashboard.html", users=all_users)
 
-            # Meetup reports now live in manage_meetups instead
-            if report.get("type") == "meetup":
-                continue
-
-            report["id"] = doc.id
-            if report.get("created_at"):
-                report["created_at"] = report["created_at"].strftime("%d/%m/%y")
-            all_reports.append(report)
-
-        all_reports.sort(key=lambda r: r.get("status") != "pending")
-
-    except Exception as e:
-        flash(f"An error occurred while fetching reports: {e}", "error")
-
-    return render_template("admin_dashboard.html", users=all_users, reports=all_reports)
 
 @app.route("/admin/manage-user/<user_id>")
 def manage_user(user_id):
@@ -1510,108 +1437,6 @@ def admin_edit_user(user_id):
     user_ref.update(update_data)
     flash("User details updated successfully.", "success")
     return redirect(url_for("manage_user", user_id=user_id))
-
-@app.route("/admin/manage-report/<report_id>")
-def manage_report(report_id):
-    if session.get("role") != "admin":
-        flash("You must be an admin to access this page.", "error")
-        return redirect(url_for("index"))
-
-    if not require_firebase():
-        return redirect(url_for("admin_dashboard"))
-
-    report_doc = db.collection("reports").document(report_id).get()
-    if not report_doc.exists:
-        flash("Report not found.", "error")
-        return redirect(url_for("admin_dashboard"))
-
-    report = report_doc.to_dict()
-    report["id"] = report_doc.id
-
-    if report.get("created_at"):
-        report["created_at"] = report["created_at"].strftime("%d/%m/%y")
-
-    reported_meetup = None
-    reported_user = None
-
-    try:
-        if report.get("type") == "meetup":
-            meetup_doc = db.collection("meetups").document(report["target_id"]).get()
-            if meetup_doc.exists:
-                reported_meetup = meetup_doc.to_dict()
-                reported_meetup["id"] = meetup_doc.id
-
-                # The "reported user" for a meetup report is its organizer
-                organizer_doc = db.collection("users").document(reported_meetup.get("organizer_id", "")).get()
-                if organizer_doc.exists:
-                    reported_user = organizer_doc.to_dict()
-                    reported_user["id"] = organizer_doc.id
-
-        elif report.get("type") == "profile":
-            user_doc = db.collection("users").document(report["target_id"]).get()
-            if user_doc.exists:
-                reported_user = user_doc.to_dict()
-                reported_user["id"] = user_doc.id
-
-    except Exception as e:
-        flash(f"An error occurred while fetching report details: {e}", "error")
-
-    return render_template(
-        "manage_report.html",
-        report=report,
-        reported_meetup=reported_meetup,
-        reported_user=reported_user
-    )
-
-
-@app.route("/admin/report/<report_id>/resolve", methods=["POST"])
-def resolve_report(report_id):
-    if session.get("role") != "admin":
-        flash("You do not have permission to perform this action.", "error")
-        return redirect(url_for("index"))
-
-    if not require_firebase():
-        return redirect(url_for("admin_dashboard"))
-
-    new_status = request.form.get("status", "resolved")
-    if new_status not in ["resolved", "dismissed"]:
-        new_status = "resolved"
-
-    db.collection("reports").document(report_id).update({
-        "status": new_status,
-        "updated_at": firestore.SERVER_TIMESTAMP
-    })
-
-    flash(f"Report marked as {new_status}.", "success")
-    return redirect(url_for("admin_dashboard"))
-
-@app.route("/admin/report/<report_id>/disable-user/<user_id>", methods=["POST"])
-def disable_user_from_report(report_id, user_id):
-    if session.get("role") != "admin":
-        flash("You do not have permission to perform this action.", "error")
-        return redirect(url_for("index"))
-
-    if not require_firebase():
-        return redirect(url_for("admin_dashboard"))
-
-    user_ref = db.collection("users").document(user_id)
-    user_doc = user_ref.get()
-
-    if user_doc.exists:
-        if user_doc.to_dict().get("role") == "admin":
-            flash("Admin accounts cannot be disabled.", "error")
-            return redirect(url_for("manage_report", report_id=report_id))
-
-        user_ref.update({"status": "disabled", "updated_at": firestore.SERVER_TIMESTAMP})
-
-        db.collection("reports").document(report_id).update({
-            "status": "resolved",
-            "updated_at": firestore.SERVER_TIMESTAMP
-        })
-
-        flash("User disabled and report resolved.", "success")
-
-    return redirect(url_for("admin_dashboard"))
 
 
 # =========================================================
@@ -1814,10 +1639,7 @@ def participant_organizer_profiles():
     Allow a registered user (participant or organizer) to view a list of public organizer profiles.
     """
     if session.get("role") not in ["participant", "organizer"]:
-        flash("You must be logged in to view organizer profiles.", "error")
-        return redirect(url_for("my_profile"))
-
-    current_user_id = session.get("user_id")
+        abort(403) # Block access for non-logged-in users
 
     # Filter logic
     keyword = request.args.get("keyword", "").strip().lower()
@@ -1830,9 +1652,6 @@ def participant_organizer_profiles():
         users_ref = db.collection("users").where("role", "==", "organizer").stream()
         for user_doc in users_ref:
             organizer = user_doc.to_dict()
-
-            if user_doc.id == current_user_id:
-                continue
 
             if organizer.get("status") != "active":
                 continue
@@ -1870,7 +1689,7 @@ def participant_view_organizer_profile(user_id):
     Allow a participant to view a single organizer's public profile.
     """
     if session.get("role") not in ["participant", "organizer"]:
-        flash("You must be logged in to view organizer profiles.", "error")
+        flash("You must be logged in to view this profile.", "error")
         return redirect(url_for("my_profile"))
 
     if not require_firebase():
@@ -2165,29 +1984,6 @@ def organizer_view_organizer_profile(user_id):
     except Exception as e:
         flash(f"Unable to load organizer profile: {e}", "error")
         return redirect(url_for("organizer_organizer_profiles"))
-
-@app.route("/meetup/<meetup_id>/report", methods=["POST"])
-def report_meetup(meetup_id):
-    if "role" not in session:
-        abort(403)
-
-    reason = request.form.get("reason", "").strip()
-    if not reason:
-        flash("Please provide a reason for the report.", "error")
-        return redirect(url_for("meetup_detail", meetup_id=meetup_id))
-
-    db.collection("reports").add({
-        "type": "meetup",
-        "target_id": meetup_id,
-        "reported_by": session.get("user_id"),
-        "reporter_role": session.get("role"),
-        "reason": reason,
-        "status": "pending",
-        "created_at": firestore.SERVER_TIMESTAMP
-    })
-
-    flash("Report submitted. An admin will review it shortly.", "success")
-    return redirect(url_for("meetup_detail", meetup_id=meetup_id))
 
 if __name__ == "__main__":
     app.run(debug=True)
