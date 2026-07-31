@@ -146,6 +146,16 @@
             </div>
         {% endif %}
 
+        {% if session.role in ['organizer', 'participant'] %}
+    <details class="report-section">
+        <summary class="report-toggle">Report Abuse</summary>
+        <form method="POST" action="{{ url_for('report_meetup', meetup_id=meetup.id) }}" class="report-form">
+            <textarea name="reason" rows="3" placeholder="Describe the issue with this meetup..." required></textarea>
+            <button type="submit" class="btn outline-btn full-width danger-btn">Submit Report</button>
+        </form>
+    </details>
+{% endif %}
+
         <a class="btn full-width outline-btn" href="{{ url_for('active_meetups') }}">
             Back to Active Meetups
         </a>

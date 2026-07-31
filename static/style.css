@@ -2108,3 +2108,92 @@ body {
         font-size: 28px;
     }
 }
+
+.report-section {
+    margin-top: 16px;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 12px;
+}
+
+.report-toggle {
+    cursor: pointer;
+    color: #c81e1e;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.report-form {
+    margin-top: 10px;
+}
+
+.report-form textarea {
+    width: 100%;
+    padding: 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 8px;
+}
+
+.admin-tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.tab-btn {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #666;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+    color: #1a56db;
+    border-bottom: 2px solid #1a56db;
+}
+
+.tab-count {
+    background: #c81e1e;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.75rem;
+    margin-left: 4px;
+}
+
+/* =========================================================
+   Manage Meetups - Reports Tab & Table Actions
+========================================================= */
+
+.status-badge.past {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+}
+
+.table-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.table-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 12px;
+}
+
+.danger-btn {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    border: 1px solid var(--danger-text);
+}
+
+tr.highlighted-row {
+    background: var(--warning-bg) !important;
+    outline: 2px solid var(--warning-text);
+}
