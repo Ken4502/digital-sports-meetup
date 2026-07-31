@@ -1575,8 +1575,8 @@ def view_participant_profile(user_id):
     current_role = session.get("role")
     current_user_id = session.get("user_id")
 
-    if current_role not in ["participant", "organizer"]:
-        flash("Only participants can view other participants' profiles.", "error")
+    if not current_user_id:
+        flash("You must be logged in to view participant profiles.", "error")
         return redirect(url_for("my_profile"))
 
     if user_id == current_user_id:
@@ -1638,8 +1638,8 @@ def participant_organizer_profiles():
     Allow a registered user (participant or organizer) to view a list of public organizer profiles.
     """
     if session.get("role") not in ["participant", "organizer"]:
-        abort(403) # Block access for non-logged-in users
-
+        flash("You must be logged in to view organizer profiles.", "error")
+        return redirect(url_for("login"))
     # Filter logic
     keyword = request.args.get("keyword", "").strip().lower()
 
@@ -1746,7 +1746,7 @@ def organizer_participant_profiles():
 
     if session.get("role") != "organizer":
         flash("Only organizers can view participant profiles.", "error")
-        return redirect(url_for("my_profile"))
+        return redirect(url_for("index"))
 
     if not require_firebase():
         return render_template("organizer_participant_profiles.html", participants=[], filters={}, sport_options=ALLOWED_SPORTS, skill_levels=SKILL_LEVELS)
@@ -1815,7 +1815,7 @@ def organizer_view_participant_profile(user_id):
 
     if session.get("role") != "organizer":
         flash("Only organizers can view participant profiles.", "error")
-        return redirect(url_for("my_profile"))
+        return redirect(url_for("index"))
 
     if not require_firebase():
         return redirect(url_for("organizer_participant_profiles"))
@@ -1869,7 +1869,7 @@ def organizer_organizer_profiles():
 
     if session.get("role") != "organizer":
         flash("Only organizers can view other organizer profiles.", "error")
-        return redirect(url_for("my_profile"))
+        return redirect(url_for("index"))
 
     if not require_firebase():
         return render_template("organizer_organizer_profiles.html", organizers=[], filters={})
@@ -1935,7 +1935,7 @@ def organizer_view_organizer_profile(user_id):
 
     if session.get("role") != "organizer":
         flash("Only organizers can view other organizer profiles.", "error")
-        return redirect(url_for("my_profile"))
+        return redirect(url_for("index"))
 
     current_user_id = session.get("user_id")
 
