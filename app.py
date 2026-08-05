@@ -743,6 +743,84 @@ def delete_account():
 
 def validate_edit_meetup_form(form_data):
     """
+    Sprint 3 Stage 1 Fix
+    SCRUM-194: Organizer edit meetup information.
+    SCRUM-432: Only valid editable meetup information should be saved.
+
+    This validation prevents organizers from updating a meetup to a past date or time.
+    """
+
+    errors = []
+
+    sport_type = form_data["sport_type"]
+    capacity = form_data["capacity"]
+    meetup_date = form_data["meetup_date"]
+    meetup_time = form_data["meetup_time"]
+    state = form_data["state"]
+    postcode = form_data["postcode"]
+    venue_name = form_data["venue_name"]
+    address = form_data["address"]
+    description = form_data["description"]
+
+    # Sport type validation
+    if not sport_type:
+        errors.append("Sport type is required.")
+    elif sport_type not in ALLOWED_SPORTS:
+        errors.append("Please select a valid sport type.")
+
+    # Capacity validation
+    if not capacity:
+        errors.append("Participant capacity is required.")
+    elif not capacity.isdigit():
+        errors.append("Participant capacity must be a whole number.")
+    elif int(capacity) < 1:
+        errors.append("Participant capacity must be at least 1.")
+    elif int(capacity) > 100:
+        errors.append("Participant capacity cannot be more than 100.")
+
+    # Date and time validation
+    if not meetup_date:
+        errors.append("Meetup date is required.")
+
+    if not meetup_time:
+        errors.append("Meetup time is required.")
+
+    if meetup_date and meetup_time:
+        try:
+            selected_datetime = datetime.strptime(
+                f"{meetup_date} {meetup_time}",
+                "%Y-%m-%d %H:%M"
+            ).replace(tzinfo=MALAYSIA_TIME)
+
+            if selected_datetime <= now_malaysia():
+                errors.append("Meetup date and time cannot be in the past.")
+
+        except ValueError:
+            errors.append("Invalid meetup date or time format.")
+
+    # Location validation
+    if not state:
+        errors.append("State is required.")
+
+    if postcode and (not postcode.isdigit() or len(postcode) != 5):
+        errors.append("Postcode must be 5 digits.")
+
+    if not venue_name:
+        errors.append("Exact venue or place name is required.")
+    elif len(venue_name) < 3:
+        errors.append("Venue name must be at least 3 characters.")
+
+    if not address:
+        errors.append("Detailed address or location guide is required.")
+    elif len(address) < 5:
+        errors.append("Detailed address must be at least 5 characters.")
+
+    # Description validation
+    if len(description) > 300:
+        errors.append("Description cannot be more than 300 characters.")
+
+    return errors
+    """
     A more lenient validation for the edit form.
     It skips date-in-the-past validation, allowing admins to modify
     details of meetups that may have already occurred.
@@ -1183,7 +1261,236 @@ def manage_meetups():
 
 
 @app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
+@app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
 def edit_meetup(meetup_id):
+    """
+    Sprint 3 Stage 1
+    SCRUM-194: Organizer edit necessary meetup information.
+    SCRUM-432: Only the meetup owner can edit their own meetup.
+    Admin is also allowed to edit for moderation purposes.
+    """
+
+    current_role = session.get("role")
+    current_user_id = session.get("user_id")
+
+    if current_role not in ["organizer", "admin"]:
+        flash("You do not have permission to edit meetups.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        if current_role == "admin":
+            return redirect(url_for("manage_meetups"))
+        return redirect(url_for("active_meetups"))
+
+    meetup_ref = db.collection("meetups").document(meetup_id)
+    meetup_doc = meetup_ref.get()
+
+    if not meetup_doc.exists:
+        flash("Meetup not found.", "error")
+        if current_role == "admin":
+            return redirect(url_for("manage_meetups"))
+        return redirect(url_for("active_meetups"))
+
+    meetup_data = meetup_doc.to_dict()
+    meetup_data["id"] = meetup_id
+
+    # SCRUM-432: Organizer can only edit own meetup.
+    if current_role == "organizer" and current_user_id != meetup_data.get("organizer_id"):
+        flash("You can only edit meetups that you have organized.", "error")
+        return redirect(url_for("active_meetups"))
+
+    # Organizer should only edit active meetups.
+    if current_role == "organizer" and meetup_data.get("status") != "active":
+        flash("Only active meetups can be edited by the organizer.", "error")
+        return redirect(url_for("active_meetups"))
+
+    if request.method == "POST":
+        form_data = get_form_data_from_request()
+        errors = validate_edit_meetup_form(form_data)
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+
+            form_data["id"] = meetup_id
+            return render_template(
+                "edit_meetup.html",
+                form_data=form_data,
+                meetup=meetup_data,
+                sport_options=ALLOWED_SPORTS
+            )
+
+        updated_available_slots = int(form_data["capacity"]) - safe_int(meetup_data.get("joined_count"), 0)
+        if updated_available_slots < 0:
+            updated_available_slots = 0
+
+        updated_data = {
+            "sport_type": form_data["sport_type"],
+            "title": f"{form_data['sport_type']} Meetup",
+            "meetup_date": form_data["meetup_date"],
+            "meetup_time": form_data["meetup_time"],
+            "location": form_data["location"],
+            "state": form_data["state"],
+            "postcode": form_data["postcode"],
+            "venue_name": form_data["venue_name"],
+            "address": form_data["address"],
+            "description": form_data["description"],
+            "capacity": int(form_data["capacity"]),
+            "available_slots": updated_available_slots,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+
+        meetup_ref.update(updated_data)
+
+        flash("Meetup updated successfully.", "success")
+        return redirect(url_for("meetup_detail", meetup_id=meetup_id))
+
+    return render_template(
+        "edit_meetup.html",
+        form_data=meetup_data,
+        meetup=meetup_data,
+        sport_options=ALLOWED_SPORTS
+    )
+
+
+@app.route("/meetup/<meetup_id>/cancel", methods=["POST"])
+def cancel_meetup(meetup_id):
+    """
+    Sprint 3 Stage 1
+    SCRUM-203: Organizer cancel my meetup.
+    The meetup is not permanently deleted. It is marked as cancelled.
+    """
+
+    if session.get("role") != "organizer":
+        flash("Only organizers can cancel their own meetups.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("active_meetups"))
+
+    meetup_ref = db.collection("meetups").document(meetup_id)
+    meetup_doc = meetup_ref.get()
+
+    if not meetup_doc.exists:
+        flash("Meetup not found.", "error")
+        return redirect(url_for("active_meetups"))
+
+    meetup = meetup_doc.to_dict()
+
+    if meetup.get("organizer_id") != session.get("user_id"):
+        flash("You can only cancel meetups that you have organized.", "error")
+        return redirect(url_for("active_meetups"))
+
+    if meetup.get("status") != "active":
+        flash("Only active meetups can be cancelled.", "error")
+        return redirect(url_for("active_meetups"))
+
+    cancellation_reason = request.form.get("cancellation_reason", "").strip()
+
+    meetup_ref.update({
+        "status": "cancelled",
+        "cancelled_by": session.get("user_id"),
+        "cancelled_at": firestore.SERVER_TIMESTAMP,
+        "cancellation_reason": cancellation_reason,
+        "updated_at": firestore.SERVER_TIMESTAMP,
+    })
+
+    flash("Meetup cancelled successfully. Participants will no longer see it as active.", "success")
+    return redirect(url_for("active_meetups"))
+
+
+@app.route("/meetup/<meetup_id>/participants")
+def meetup_participants(meetup_id):
+    """
+    Sprint 3 Stage 1
+    SCRUM-212: Organizer view participant list.
+    SCRUM-432: Only the organizer who owns the meetup can view the participant list.
+    Admin can also view it for moderation.
+    """
+
+    current_role = session.get("role")
+    current_user_id = session.get("user_id")
+
+    if current_role not in ["organizer", "admin"]:
+        flash("Only organizers can view the participant list for a meetup.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("active_meetups"))
+
+    meetup_ref = db.collection("meetups").document(meetup_id)
+    meetup_doc = meetup_ref.get()
+
+    if not meetup_doc.exists:
+        flash("Meetup not found.", "error")
+        return redirect(url_for("active_meetups"))
+
+    meetup = meetup_doc.to_dict()
+    meetup["id"] = meetup_id
+
+    if current_role == "organizer" and meetup.get("organizer_id") != current_user_id:
+        flash("You can only view participants for meetups that you have organized.", "error")
+        return redirect(url_for("active_meetups"))
+
+    participant_ids = []
+
+    for participant_id in meetup.get("participant_ids", []) or []:
+        if participant_id and participant_id not in participant_ids:
+            participant_ids.append(participant_id)
+
+    try:
+        rsvp_docs = db.collection("rsvps").where("meetup_id", "==", meetup_id).stream()
+
+        for rsvp_doc in rsvp_docs:
+            rsvp = rsvp_doc.to_dict()
+            rsvp_status = rsvp.get("status", "confirmed")
+            participant_id = rsvp.get("participant_id")
+
+            if rsvp_status in ["cancelled", "withdrawn", "removed"]:
+                continue
+
+            if participant_id and participant_id not in participant_ids:
+                participant_ids.append(participant_id)
+
+    except Exception:
+        pass
+
+    participants = []
+
+    for participant_id in participant_ids:
+        user_doc = db.collection("users").document(participant_id).get()
+
+        if not user_doc.exists:
+            continue
+
+        user = user_doc.to_dict()
+
+        if user.get("role") != "participant":
+            continue
+
+        if user.get("status", "active") != "active":
+            continue
+
+        participants.append({
+            "user_id": user_doc.id,
+            "full_name": user.get("full_name", ""),
+            "sport_interest": user.get("sport_interest", ""),
+            "skill_level": user.get("skill_level", ""),
+            "state": user.get("state", ""),
+            "status": user.get("status", "active"),
+        })
+
+    participants.sort(key=lambda participant: participant.get("full_name", "").lower())
+
+    meetup["joined_count"] = len(participants)
+    meetup["available_slots"] = calculate_available_slots(meetup)
+
+    return render_template(
+        "meetup_participants.html",
+        meetup=meetup,
+        participants=participants,
+        participant_count=len(participants)
+    )
     """
     Admin/Organizer page to edit an existing meetup.
     """
