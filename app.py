@@ -741,6 +741,29 @@ def delete_account():
         flash(f"An error occurred while deleting your account: {e}", "error")
         return redirect(url_for("my_profile"))
 
+@app.route("/profile/<user_id>/report", methods=["POST"])
+def report_profile(user_id):
+    if "role" not in session:
+        abort(403)
+
+    reason = request.form.get("reason", "").strip()
+    if not reason:
+        flash("Please provide a reason for the report.", "error")
+        return redirect(request.referrer or url_for("index"))
+
+    db.collection("reports").add({
+        "type": "profile",
+        "target_id": user_id,
+        "reported_by": session.get("user_id"),
+        "reporter_role": session.get("role"),
+        "reason": reason,
+        "status": "pending",
+        "created_at": firestore.SERVER_TIMESTAMP
+    })
+
+    flash("Report submitted. An admin will review it shortly.", "success")
+    return redirect(request.referrer or url_for("index"))
+
 def validate_edit_meetup_form(form_data):
     """
     A more lenient validation for the edit form.
