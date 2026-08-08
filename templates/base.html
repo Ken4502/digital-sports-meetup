@@ -27,6 +27,7 @@
                     <a href="{{ url_for('participant_profiles') }}">Participant Profiles</a>
                     <a href="{{ url_for('participant_organizer_profiles') }}">Organizer Profiles</a>
                     <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
+                    <a href="{{ url_for('past_meetups') }}">Past Meetups</a>
                 {% elif session.role == 'organizer' %}
                     <a href="{{ url_for('my_profile') }}">My Profile</a>
                     <a href="{{ url_for('create_meetup') }}">Create Meetup</a>
