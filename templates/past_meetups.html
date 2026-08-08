@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <span class="small-label">Participant View</span>
+    <h1>Past Meetups</h1>
+    <p>A record of meetups you have attended. You can rate other players after a meetup has concluded.</p>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div style="padding: 0 0 24px 0;">
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+
+{% if error %}
+    <div class="empty-state">
+        <div class="empty-icon">🔌</div>
+        <h2>Error Fetching Meetups</h2>
+        <p>{{ error }}</p>
+    </div>
+{% elif meetups %}
+    <div class="result-summary">
+        <p>Showing <strong>{{ meetups|length }}</strong> past meetup(s) you joined.</p>
+    </div>
+    <div class="meetup-grid">
+        {% for meetup in meetups %}
+            <div class="meetup-card">
+                <div class="meetup-card-header">
+                    <div>
+                        <span class="sport-badge">{{ meetup.sport_type }}</span>
+                        <h2>{{ meetup.title|default(meetup.sport_type ~ ' Meetup') }}</h2>
+                    </div>
+                    <span class="status-badge past">Concluded</span>
+                </div>
+
+                <div class="meetup-info">
+                    <p>
+                        <span>Date</span>
+                        <strong>{{ meetup.meetup_date }}</strong>
+                    </p>
+                    <p>
+                        <span>Time</span>
+                        <strong>{{ meetup.meetup_time }}</strong>
+                    </p>
+                    <p>
+                        <span>Location</span>
+                        <strong>{{ meetup.location }}</strong>
+                    </p>
+                </div>
+
+                <div class="meetup-card-footer">
+                    <a href="{{ url_for('rate_players', meetup_id=meetup.id) }}" class="btn full-width secondary-btn">
+                        Rate Players
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📂</div>
+        <h2>No Past Meetups</h2>
+        <p>You haven't joined any meetups that have ended. Once you attend a meetup, it will appear here.</p>
+    </div>
+{% endif %}
+
+{% endblock %}

@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
 import firebase_admin
-from firebase_admin import credentials, firestore as firebase_firestore
-from google.cloud import firestore
+from firebase_admin import credentials
+from firebase_admin import firestore as firebase_firestore
+from google.cloud.firestore_v1.field_path import FieldPath
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import re 
@@ -147,7 +148,7 @@ def mark_meetup_as_past(meetup_id):
 
     db.collection("meetups").document(meetup_id).update({
         "status": "past",
-        "updated_at": firestore.SERVER_TIMESTAMP,
+        "updated_at": firebase_firestore.SERVER_TIMESTAMP,
     })
 
 
@@ -528,8 +529,8 @@ def register():
             "experience_years": int(form_data["experience_years"]) if form_data["experience_years"] else 0,
             "bio": form_data["bio"],
             "status": "active",
-            "created_at": firestore.SERVER_TIMESTAMP,
-            "updated_at": firestore.SERVER_TIMESTAMP,
+            "created_at": firebase_firestore.SERVER_TIMESTAMP,
+            "updated_at": firebase_firestore.SERVER_TIMESTAMP,
         }
 
         db.collection("users").document(user_id).set(user_data)
@@ -602,7 +603,7 @@ def edit_profile():
     confirm_new_password = request.form.get("confirm_new_password", "")
 
     errors = []
-    update_data = {"updated_at": firestore.SERVER_TIMESTAMP}
+    update_data = {"updated_at": firebase_firestore.SERVER_TIMESTAMP}
 
     # Validate Full Name
     # Validate Full Name
@@ -962,8 +963,8 @@ def create_meetup():
             "participant_ids": [],
             "participants": [],
             "status": "active",
-            "created_at": firestore.SERVER_TIMESTAMP,
-            "updated_at": firestore.SERVER_TIMESTAMP,
+            "created_at": firebase_firestore.SERVER_TIMESTAMP,
+            "updated_at": firebase_firestore.SERVER_TIMESTAMP,
         }
 
         db.collection("meetups").add(meetup_data)
@@ -1182,6 +1183,156 @@ def active_meetups():
     )
 
 
+@app.route("/past-meetups")
+def past_meetups():
+    if session.get("role") != "participant":
+        flash("Only participants can view past meetups.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return render_template("past_meetups.html", meetups=[])
+
+    participant_id = session["user_id"]
+    past_meetups = []
+
+    try:
+        # Find all RSVPs for the current participant
+        rsvp_docs = db.collection("rsvps").where("participant_id", "==", participant_id).stream()
+        meetup_ids = list(set([rsvp.to_dict().get("meetup_id") for rsvp in rsvp_docs if rsvp.to_dict().get("meetup_id")]))
+
+        if meetup_ids:
+            # Create document references from IDs
+            meetup_refs = [db.collection("meetups").document(mid) for mid in meetup_ids]
+            
+            # Fetch all meetup documents at once. db.get_all handles batching.
+            meetup_docs = db.get_all(meetup_refs)
+
+            for doc in meetup_docs:
+                if not doc.exists:
+                    continue
+
+                meetup = doc.to_dict()
+                meetup["id"] = doc.id
+
+                # If a meetup is active but its date is in the past, update it
+                if meetup.get("status") == "active" and is_meetup_past(meetup):
+                    mark_meetup_as_past(doc.id)
+                    meetup["status"] = "past"  # Reflect change locally
+
+                # Only show meetups that are now marked as past
+                if meetup.get("status") == "past":
+                    past_meetups.append(meetup)
+
+        # Sort meetups by date in descending order
+        past_meetups.sort(key=lambda m: (m.get("meetup_date", ""), m.get("meetup_time", "")), reverse=True)
+
+    except Exception as e:
+        flash(f"An error occurred while fetching past meetups: {e}", "error")
+
+    return render_template("past_meetups.html", meetups=past_meetups)
+
+
+@app.route("/meetup/<meetup_id>/rate", methods=["GET", "POST"])
+def rate_players(meetup_id):
+    if session.get("role") != "participant":
+        flash("Only participants can rate players.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("past_meetups"))
+
+    current_user_id = session["user_id"]
+    meetup_ref = db.collection("meetups").document(meetup_id)
+    meetup_doc = meetup_ref.get()
+
+    if not meetup_doc.exists:
+        flash("Meetup not found.", "error")
+        return redirect(url_for("past_meetups"))
+
+    meetup = meetup_doc.to_dict()
+    meetup["id"] = meetup_id
+
+    # Ensure the user was a participant of this past meetup
+    if current_user_id not in meetup.get("participant_ids", []):
+        flash("You can only rate players for meetups you have attended.", "error")
+        return redirect(url_for("past_meetups"))
+
+    if request.method == "POST":
+        rated_user_id = request.form.get("user_id")
+        rating_str = request.form.get("rating")
+        review_text = request.form.get("review", "").strip()
+
+        # Validation
+        if not rated_user_id or not rating_str:
+            flash("Please select a player and a rating.", "error")
+            return redirect(url_for("rate_players", meetup_id=meetup_id))
+
+        try:
+            rating = int(rating_str)
+            if not 1 <= rating <= 5:
+                raise ValueError()
+        except (ValueError, TypeError):
+            flash("Invalid rating value.", "error")
+            return redirect(url_for("rate_players", meetup_id=meetup_id))
+
+        if rated_user_id == current_user_id:
+            flash("You cannot rate yourself.", "error")
+            return redirect(url_for("rate_players", meetup_id=meetup_id))
+
+        # Check if already rated
+        rating_id = f"{meetup_id}_{current_user_id}_{rated_user_id}"
+        rating_doc = db.collection("ratings").document(rating_id).get()
+        if rating_doc.exists:
+            flash("You have already rated this player for this meetup.", "error")
+            return redirect(url_for("rate_players", meetup_id=meetup_id))
+
+        # Save the rating
+        rating_data = {
+            "meetup_id": meetup_id,
+            "rater_id": current_user_id,
+            "rated_id": rated_user_id,
+            "rating": rating,
+            "created_at": firebase_firestore.SERVER_TIMESTAMP,
+        }
+        db.collection("ratings").document(rating_id).set(rating_data)
+
+        # Save the review if provided
+        if review_text:
+            review_id = f"{meetup_id}_{current_user_id}_{rated_user_id}"
+            review_data = {
+                "meetup_id": meetup_id,
+                "rater_id": current_user_id,
+                "rated_id": rated_user_id,
+                "review": review_text,
+                "created_at": firebase_firestore.SERVER_TIMESTAMP,
+            }
+            db.collection("reviews").document(review_id).set(review_data)
+
+        flash("Player rated successfully.", "success")
+        return redirect(url_for("rate_players", meetup_id=meetup_id))
+
+    # GET request: Show the rating page
+    participant_ids = meetup.get("participant_ids", [])
+    participants = []
+    if participant_ids:
+        # Fetch all user documents at once for efficiency
+        user_refs = [db.collection('users').document(uid) for uid in participant_ids if uid != current_user_id]
+        if user_refs:
+            user_docs = db.get_all(user_refs)
+            for user_doc in user_docs:
+                if user_doc.exists:
+                    user_data = user_doc.to_dict()
+                    user_data['user_id'] = user_doc.id # Make sure user_id is in the dict
+                    participants.append(user_data)
+
+
+    # Get existing ratings to disable already rated players in the UI
+    existing_ratings_docs = db.collection("ratings").where("meetup_id", "==", meetup_id).where("rater_id", "==", current_user_id).stream()
+    rated_user_ids = [rating.to_dict().get("rated_id") for rating in existing_ratings_docs]
+
+    return render_template("rate_players.html", meetup=meetup, participants=participants, rated_user_ids=rated_user_ids)
+
+
 @app.route("/meetup/<meetup_id>")
 def meetup_detail(meetup_id):
     if not require_firebase():
@@ -1239,7 +1390,7 @@ def rsvp_meetup(meetup_id):
 
     transaction = db.transaction()
 
-    @firestore.transactional
+    @firebase_firestore.transactional
     def rsvp_transaction(transaction, meetup_ref, rsvp_ref):
         meetup_snapshot = meetup_ref.get(transaction=transaction)
         rsvp_snapshot = rsvp_ref.get(transaction=transaction)
@@ -1255,7 +1406,7 @@ def rsvp_meetup(meetup_id):
         if is_meetup_past(meetup):
             transaction.update(meetup_ref, {
                 "status": "past",
-                "updated_at": firestore.SERVER_TIMESTAMP,
+                "updated_at": firebase_firestore.SERVER_TIMESTAMP,
             })
             return False, "This meetup has already ended. You cannot join it."
 
@@ -1271,14 +1422,14 @@ def rsvp_meetup(meetup_id):
         transaction.set(rsvp_ref, {
             "meetup_id": meetup_id,
             "participant_id": participant_id,
-            "created_at": firestore.SERVER_TIMESTAMP,
+            "created_at": firebase_firestore.SERVER_TIMESTAMP,
         })
 
         transaction.update(meetup_ref, {
-            "joined_count": firestore.Increment(1),
-            "participant_ids": firestore.ArrayUnion([participant_id]),
-            "participants": firestore.ArrayUnion([participant_id]),
-            "updated_at": firestore.SERVER_TIMESTAMP,
+            "joined_count": firebase_firestore.Increment(1),
+            "participant_ids": firebase_firestore.ArrayUnion([participant_id]),
+            "participants": firebase_firestore.ArrayUnion([participant_id]),
+            "updated_at": firebase_firestore.SERVER_TIMESTAMP,
         })
 
         return True, "RSVP successful. You have joined this meetup."
@@ -1312,7 +1463,7 @@ def leave_meetup(meetup_id):
 
     transaction = db.transaction()
 
-    @firestore.transactional
+    @firebase_firestore.transactional
     def leave_transaction(transaction, meetup_ref, rsvp_ref):
         meetup_snapshot = meetup_ref.get(transaction=transaction)
         rsvp_snapshot = rsvp_ref.get(transaction=transaction)
@@ -1328,7 +1479,7 @@ def leave_meetup(meetup_id):
         if is_meetup_past(meetup):
             transaction.update(meetup_ref, {
                 "status": "past",
-                "updated_at": firestore.SERVER_TIMESTAMP,
+                "updated_at": firebase_firestore.SERVER_TIMESTAMP,
             })
             return False, "This meetup has already ended. You cannot leave it."
 
@@ -1341,9 +1492,9 @@ def leave_meetup(meetup_id):
         transaction.delete(rsvp_ref)
         transaction.update(meetup_ref, {
             "joined_count": new_joined_count,
-            "participant_ids": firestore.ArrayRemove([participant_id]),
-            "participants": firestore.ArrayRemove([participant_id]),
-            "updated_at": firestore.SERVER_TIMESTAMP,
+            "participant_ids": firebase_firestore.ArrayRemove([participant_id]),
+            "participants": firebase_firestore.ArrayRemove([participant_id]),
+            "updated_at": firebase_firestore.SERVER_TIMESTAMP,
         })
 
         return True, "You have left this meetup."
@@ -1457,7 +1608,7 @@ def edit_meetup(meetup_id):
             "description": form_data["description"],
             "capacity": int(form_data["capacity"]),
             "available_slots": updated_available_slots,
-            "updated_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firebase_firestore.SERVER_TIMESTAMP,
         }
 
         meetup_ref.update(updated_data)
@@ -1510,9 +1661,9 @@ def cancel_meetup(meetup_id):
     meetup_ref.update({
         "status": "cancelled",
         "cancelled_by": session.get("user_id"),
-        "cancelled_at": firestore.SERVER_TIMESTAMP,
+        "cancelled_at": firebase_firestore.SERVER_TIMESTAMP,
         "cancellation_reason": cancellation_reason,
-        "updated_at": firestore.SERVER_TIMESTAMP,
+        "updated_at": firebase_firestore.SERVER_TIMESTAMP,
     })
 
     flash("Meetup cancelled successfully. Participants will no longer see it as active.", "success")
@@ -1612,6 +1763,7 @@ def meetup_participants(meetup_id):
         participant_count=len(participants)
     )
     """
+
     Admin/Organizer page to edit an existing meetup.
     """
     if session.get("role") not in ["admin", "organizer"]:
@@ -1664,7 +1816,7 @@ def meetup_participants(meetup_id):
             "address": form_data["address"],
             "description": form_data["description"],
             "capacity": int(form_data["capacity"]),
-            "updated_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firebase_firestore.SERVER_TIMESTAMP,
         }
 
         meetup_ref.update(updated_data)
@@ -1808,7 +1960,7 @@ def toggle_user_status(user_id):
 
         current_status = user_data.get("status", "active")
         new_status = "disabled" if current_status == "active" else "active"
-        user_ref.update({"status": new_status, "updated_at": firestore.SERVER_TIMESTAMP})
+        user_ref.update({"status": new_status, "updated_at": firebase_firestore.SERVER_TIMESTAMP})
         flash(f"User status changed to {new_status}.", "success")
 
     return redirect(url_for("manage_user", user_id=user_id))
@@ -1835,7 +1987,7 @@ def admin_edit_user(user_id):
     phone = request.form.get("phone", "").strip()
 
     errors = []
-    update_data = {"updated_at": firestore.SERVER_TIMESTAMP}
+    update_data = {"updated_at": firebase_firestore.SERVER_TIMESTAMP}
 
     # Validate Email
     if not email or not is_valid_email(email):
@@ -1863,7 +2015,6 @@ def admin_edit_user(user_id):
         for error in errors:
             flash(error, "error")
         return redirect(url_for("manage_user", user_id=user_id))
-
     user_ref.update(update_data)
     flash("User details updated successfully.", "success")
     return redirect(url_for("manage_user", user_id=user_id))
