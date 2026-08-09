@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 import firebase_admin
 from firebase_admin import credentials, firestore as firebase_firestore
 from google.cloud import firestore
+from google.cloud.firestore_v1.field_path import FieldPath
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import re 
