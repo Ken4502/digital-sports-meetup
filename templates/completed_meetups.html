@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <span class="small-label">Sprint 3 Stage 3 & 4</span>
+    <h1>Completed Meetups for Rating</h1>
+    <p>Select a completed meetup that you attended and rate other players.</p>
+</div>
+
+<div class="result-summary">
+    <p>Showing <strong>{{ meetups|length }}</strong> completed meetup(s) that you attended.</p>
+</div>
+
+{% if meetups %}
+    <div class="meetup-grid">
+        {% for meetup in meetups %}
+            <div class="meetup-card">
+                <div class="meetup-card-header">
+                    <div>
+                        <span class="sport-badge">{{ meetup.sport_type }}</span>
+                        <h2>{{ meetup.title|default(meetup.sport_type ~ ' Meetup') }}</h2>
+                    </div>
+                    <span class="status-badge full">Completed</span>
+                </div>
+
+                <div class="meetup-info">
+                    <p>
+                        <span>Date</span>
+                        <strong>{{ meetup.meetup_date }}</strong>
+                    </p>
+                    <p>
+                        <span>Time</span>
+                        <strong>{{ meetup.meetup_time }}</strong>
+                    </p>
+                    <p>
+                        <span>Location</span>
+                        <strong>{{ meetup.location }}</strong>
+                    </p>
+                    <p>
+                        <span>Participants</span>
+                        <strong>{{ meetup.participant_count }} player(s)</strong>
+                    </p>
+                </div>
+
+                <a class="btn full-width secondary-btn" href="{{ url_for('rate_participants', meetup_id=meetup.id) }}">
+                    Rate Players
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state">
+        <div class="empty-icon">⭐</div>
+        <h2>No Completed Meetups Available</h2>
+        <p>You can only rate players after you have attended a completed meetup.</p>
+    </div>
+{% endif %}
+
+{% endblock %}
