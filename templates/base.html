@@ -28,6 +28,7 @@
                     <a href="{{ url_for('participant_organizer_profiles') }}">Organizer Profiles</a>
                     <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
                     <a href="{{ url_for('completed_meetups_for_rating') }}">Rate Players</a>
+                    <a href="{{ url_for('my_reviews') }}">My Reviews</a>
                 {% elif session.role == 'organizer' %}
                     <a href="{{ url_for('my_profile') }}">My Profile</a>
                     <a href="{{ url_for('create_meetup') }}">Create Meetup</a>
@@ -37,8 +38,6 @@
                 {% elif session.role == 'admin' %}
                     <a href="{{ url_for('admin_dashboard') }}">Manage Users</a>
                     <a href="{{ url_for('manage_meetups') }}">Manage Meetups</a>
-                    <a href="{{ url_for('manage_reviews') }}">Manage Reviews</a>
-
                 {% endif %}
 
                 <a href="{{ url_for('logout') }}">Logout</a>
