@@ -2187,31 +2187,20 @@ def admin_dashboard():
         return redirect(url_for("index"))
 
     if not require_firebase():
-        return render_template("admin_dashboard.html", users=[], reviews=[])
+        return render_template("admin_dashboard.html", users=[])
 
     all_users = []
     try:
         user_docs = db.collection("users").stream()
         for doc in user_docs:
             user = doc.to_dict()
-            # Exclude admins from the list
             if user.get("role") != "admin":
                 user["id"] = doc.id
                 all_users.append(user)
     except Exception as e:
         flash(f"An error occurred while fetching users: {e}", "error")
 
-    all_reviews = []
-    try:
-        review_docs = db.collection("ratings").stream()
-        for doc in review_docs:
-            review = doc.to_dict()
-            review["id"] = doc.id
-            all_reviews.append(review)
-    except Exception as e:
-        flash(f"An error occurred while fetching reviews: {e}", "error")
-
-    return render_template("admin_dashboard.html", users=all_users, reviews=all_reviews)
+    return render_template("admin_dashboard.html", users=all_users)
 
 
 @app.route("/admin/manage-user/<user_id>")
@@ -2359,32 +2348,40 @@ def edit_review(review_id):
         flash("Review not found.", "error")
         return redirect(url_for("admin_dashboard"))
 
+    review = review_doc.to_dict()
+    review["id"] = review_doc.id
+
     if request.method == "POST":
-        rating = request.form.get("rating")
-        comment = request.form.get("comment")
-
-        errors = []
-        if not rating or not rating.isdigit() or not 1 <= int(rating) <= 5:
-            errors.append("Rating must be a number between 1 and 5.")
-
-        if len(comment) > 500:
-            errors.append("Comment cannot exceed 500 characters.")
+        form_data = get_rating_form_data()
+        errors = validate_rating_form(form_data)
 
         if errors:
             for error in errors:
                 flash(error, "error")
-            return render_template("edit_review.html", review=review_doc.to_dict())
+            rater_doc = db.collection("users").document(review.get("rater_id", "")).get()
+            review["reviewer_name"] = rater_doc.to_dict().get("full_name", "Unknown") if rater_doc.exists else "Unknown"
+            return render_template("edit_review.html", review=review)
+
+        average_rating = calculate_average_rating(form_data)
 
         review_ref.update({
-            "rating": int(rating),
-            "comment": comment,
+            "attendance_rating": int(form_data["attendance_rating"]),
+            "teamwork_rating": int(form_data["teamwork_rating"]),
+            "sportsmanship_rating": int(form_data["sportsmanship_rating"]),
+            "reliability_rating": int(form_data["reliability_rating"]),
+            "average_rating": average_rating,
+            "comment": form_data["comment"],
             "updated_at": firestore.SERVER_TIMESTAMP
         })
 
         flash("Review updated successfully.", "success")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("manage_reviews"))
 
-    return render_template("edit_review.html", review=review_doc.to_dict())
+    rater_doc = db.collection("users").document(review.get("rater_id", "")).get()
+    review["reviewer_name"] = rater_doc.to_dict().get("full_name", "Unknown") if rater_doc.exists else "Unknown"
+    
+    return render_template("edit_review.html", review=review)
+
 
 
 @app.route("/manage-reviews")
@@ -2403,10 +2400,8 @@ def manage_reviews():
             review = doc.to_dict()
             review["id"] = doc.id
 
-            # Get reviewee name from the review document
             review["reviewee_name"] = review.get("rated_user_name", "Unknown")
 
-            # Get reviewer name from the users collection
             rater_id = review.get("rater_id")
             if rater_id:
                 rater_doc = db.collection("users").document(rater_id).get()
@@ -2417,14 +2412,21 @@ def manage_reviews():
             else:
                 review["reviewer_name"] = "Unknown"
 
-            # Use average_rating for the rating
-            review["rating"] = review.get("average_rating", 0)
+            review["average_rating"] = review.get("average_rating", 0)
+            
+            created_at = review.get("created_at")
+            if created_at and isinstance(created_at, datetime):
+                review["created_at"] = created_at.strftime("%Y-%m-%d %H:%M")
+            else:
+                review["created_at"] = "N/A"
+
 
             all_reviews.append(review)
     except Exception as e:
         flash(f"An error occurred while fetching reviews: {e}", "error")
 
     return render_template("manage_reviews.html", reviews=all_reviews)
+
 
 @app.route("/admin/review/<review_id>/delete", methods=["POST"])
 def delete_review(review_id):
@@ -2433,14 +2435,14 @@ def delete_review(review_id):
         return redirect(url_for("index"))
 
     if not require_firebase():
-        return redirect(url_for("manage_reviews"))
+        return redirect(url_for("admin_dashboard"))
 
     review_ref = db.collection("ratings").document(review_id)
     review_doc = review_ref.get()
 
     if not review_doc.exists:
         flash("Review not found.", "error")
-        return redirect(url_for("manage_reviews"))
+        return redirect(url_for("admin_dashboard"))
 
     review_ref.delete()
     flash("Review deleted successfully.", "success")

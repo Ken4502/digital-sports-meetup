@@ -14,9 +14,6 @@
     <button type="button" class="tab-btn active" onclick="showTab('users')" id="usersTabBtn">
         Users
     </button>
-    <button type="button" class="tab-btn" onclick="showTab('reviews')" id="reviewsTabBtn">
-        Reviews {% if reviews %}<span class="tab-count">{{ reviews | length }}</span>{% endif %}
-    </button>
     <button type="button" class="tab-btn" onclick="showTab('reports')" id="reportsTabBtn">
         Reports {% if reports %}<span class="tab-count">{{ reports | length }}</span>{% endif %}
     </button>
@@ -85,67 +82,6 @@
     </div>
 </div>
 
-<div id="reviewsTab" class="tab-content" style="display:none;">
-    <div class="admin-search-bar" style="margin-bottom: 16px;">
-        <input
-            type="text"
-            id="reviewSearchInput"
-            class="search-input"
-            placeholder="Search by reviewer, reviewee, or comment..."
-            onkeyup="filterReviewTable()"
-            style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color, #ccc); box-sizing: border-box;"
-        >
-    </div>
-
-    <div class="admin-table-card">
-        {% if reviews %}
-            <table class="admin-table" id="reviewTable">
-                <thead>
-                    <tr>
-                        <th>Reviewer</th>
-                        <th>Reviewee</th>
-                        <th>Rating</th>
-                        <th>Comment</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for review in reviews %}
-                        <tr data-reviewer="{{ review.reviewer_name | lower }}" data-reviewee="{{ review.reviewee_name | lower }}" data-comment="{{ review.comment | lower }}">
-                            <td>{{ review.reviewer_name }}</td>
-                            <td>{{ review.reviewee_name }}</td>
-                            <td>{{ review.rating }}</td>
-                            <td>{{ review.comment }}</td>
-                            <td>{{ review.created_at }}</td>
-                            <td>
-                                <a href="{{ url_for('edit_review', review_id=review.id) }}" class="btn table-btn">Edit</a>
-                                <form
-                                    method="POST"
-                                    action="{{ url_for('delete_review', review_id=review.id) }}"
-                                    onsubmit="return confirm('Are you sure you want to delete this review?');"
-                                    style="display: inline;"
-                                >
-                                    <button type="submit" class="btn table-btn danger-btn">Delete</button>
-                                </form>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            <p id="noReviewResults" style="display:none; padding: 16px; text-align: center; color: var(--text-muted, #888);">
-                No reviews match your search.
-            </p>
-        {% else %}
-            <div class="empty-state" style="box-shadow: none; border: none;">
-                <div class="empty-icon">⭐</div>
-                <h2>No Reviews Found</h2>
-                <p>There are no reviews in the system yet.</p>
-            </div>
-        {% endif %}
-    </div>
-</div>
-
 <div id="reportsTab" class="tab-content" style="display:none;">
     <div class="admin-table-card">
         {% if reports %}
@@ -209,33 +145,11 @@ function filterUserTable() {
     }
 }
 
-function filterReviewTable() {
-    const query = document.getElementById('reviewSearchInput').value.trim().toLowerCase();
-    const rows = document.querySelectorAll('#reviewTable tbody tr');
-    let visibleCount = 0;
-
-    rows.forEach(row => {
-        const reviewer = row.dataset.reviewer || '';
-        const reviewee = row.dataset.reviewee || '';
-        const comment = row.dataset.comment || '';
-        const matches = reviewer.includes(query) || reviewee.includes(query) || comment.includes(query);
-        row.style.display = matches ? '' : 'none';
-        if (matches) visibleCount++;
-    });
-
-    const noResults = document.getElementById('noReviewResults');
-    if (noResults) {
-        noResults.style.display = visibleCount === 0 ? 'block' : 'none';
-    }
-}
-
 function showTab(tabName) {
     document.getElementById('usersTab').style.display = tabName === 'users' ? '' : 'none';
-    document.getElementById('reviewsTab').style.display = tabName === 'reviews' ? '' : 'none';
     document.getElementById('reportsTab').style.display = tabName === 'reports' ? '' : 'none';
 
     document.getElementById('usersTabBtn').classList.toggle('active', tabName === 'users');
-    document.getElementById('reviewsTabBtn').classList.toggle('active', tabName === 'reviews');
     document.getElementById('reportsTabBtn').classList.toggle('active', tabName === 'reports');
 }
 </script>

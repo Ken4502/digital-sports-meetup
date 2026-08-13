@@ -5,7 +5,7 @@
     <span class="small-label">Admin Hub</span>
     <h1>Manage Reviews</h1>
     <p>
-        As an administrator, you can view, edit, or delete any review submitted by users.
+        As an administrator, you can search, edit, or delete any review in the system.
     </p>
 </div>
 
@@ -38,7 +38,7 @@
                     <tr data-reviewer="{{ review.reviewer_name | lower }}" data-reviewee="{{ review.reviewee_name | lower }}" data-comment="{{ review.comment | lower }}">
                         <td>{{ review.reviewer_name }}</td>
                         <td>{{ review.reviewee_name }}</td>
-                        <td>{{ review.rating }}</td>
+                        <td>{{ review.average_rating }}</td>
                         <td>{{ review.comment }}</td>
                         <td>{{ review.created_at }}</td>
                         <td>
