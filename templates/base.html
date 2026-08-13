@@ -37,6 +37,7 @@
                 {% elif session.role == 'admin' %}
                     <a href="{{ url_for('admin_dashboard') }}">Manage Users</a>
                     <a href="{{ url_for('manage_meetups') }}">Manage Meetups</a>
+                    <a href="{{ url_for('manage_reviews') }}">Manage Reviews</a>
                 {% endif %}
 
                 <a href="{{ url_for('logout') }}">Logout</a>

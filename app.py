@@ -2187,7 +2187,7 @@ def admin_dashboard():
         return redirect(url_for("index"))
 
     if not require_firebase():
-        return render_template("admin_dashboard.html", users=[])
+        return render_template("admin_dashboard.html", users=[], reviews=[])
 
     all_users = []
     try:
@@ -2201,7 +2201,17 @@ def admin_dashboard():
     except Exception as e:
         flash(f"An error occurred while fetching users: {e}", "error")
 
-    return render_template("admin_dashboard.html", users=all_users)
+    all_reviews = []
+    try:
+        review_docs = db.collection("ratings").stream()
+        for doc in review_docs:
+            review = doc.to_dict()
+            review["id"] = doc.id
+            all_reviews.append(review)
+    except Exception as e:
+        flash(f"An error occurred while fetching reviews: {e}", "error")
+
+    return render_template("admin_dashboard.html", users=all_users, reviews=all_reviews)
 
 
 @app.route("/admin/manage-user/<user_id>")
@@ -2332,6 +2342,109 @@ def admin_edit_user(user_id):
     flash("User details updated successfully.", "success")
     return redirect(url_for("manage_user", user_id=user_id))
 
+
+@app.route("/admin/review/<review_id>/edit", methods=["GET", "POST"])
+def edit_review(review_id):
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("admin_dashboard"))
+
+    review_ref = db.collection("ratings").document(review_id)
+    review_doc = review_ref.get()
+
+    if not review_doc.exists:
+        flash("Review not found.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    if request.method == "POST":
+        rating = request.form.get("rating")
+        comment = request.form.get("comment")
+
+        errors = []
+        if not rating or not rating.isdigit() or not 1 <= int(rating) <= 5:
+            errors.append("Rating must be a number between 1 and 5.")
+
+        if len(comment) > 500:
+            errors.append("Comment cannot exceed 500 characters.")
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return render_template("edit_review.html", review=review_doc.to_dict())
+
+        review_ref.update({
+            "rating": int(rating),
+            "comment": comment,
+            "updated_at": firestore.SERVER_TIMESTAMP
+        })
+
+        flash("Review updated successfully.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    return render_template("edit_review.html", review=review_doc.to_dict())
+
+
+@app.route("/manage-reviews")
+def manage_reviews():
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return render_template("manage_reviews.html", reviews=[])
+
+    all_reviews = []
+    try:
+        review_docs = db.collection("ratings").stream()
+        for doc in review_docs:
+            review = doc.to_dict()
+            review["id"] = doc.id
+
+            # Get reviewee name from the review document
+            review["reviewee_name"] = review.get("rated_user_name", "Unknown")
+
+            # Get reviewer name from the users collection
+            rater_id = review.get("rater_id")
+            if rater_id:
+                rater_doc = db.collection("users").document(rater_id).get()
+                if rater_doc.exists:
+                    review["reviewer_name"] = rater_doc.to_dict().get("full_name", "Unknown")
+                else:
+                    review["reviewer_name"] = "Unknown"
+            else:
+                review["reviewer_name"] = "Unknown"
+
+            # Use average_rating for the rating
+            review["rating"] = review.get("average_rating", 0)
+
+            all_reviews.append(review)
+    except Exception as e:
+        flash(f"An error occurred while fetching reviews: {e}", "error")
+
+    return render_template("manage_reviews.html", reviews=all_reviews)
+
+@app.route("/admin/review/<review_id>/delete", methods=["POST"])
+def delete_review(review_id):
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("manage_reviews"))
+
+    review_ref = db.collection("ratings").document(review_id)
+    review_doc = review_ref.get()
+
+    if not review_doc.exists:
+        flash("Review not found.", "error")
+        return redirect(url_for("manage_reviews"))
+
+    review_ref.delete()
+    flash("Review deleted successfully.", "success")
+    return redirect(url_for("manage_reviews"))
 
 # =========================================================
 # Sprint 2 Stage 2
