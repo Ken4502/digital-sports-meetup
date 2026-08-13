@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="profile-page">
+    <div class="profile-page-header">
+        <div>
+            <h1>Rate Players</h1>
+            <p>Select a participant from the completed meetup to submit your rating.</p>
+        </div>
+        <span class="profile-count">{{ participant_count }} Player(s)</span>
+    </div>
+
+    <div class="profile-detail-card" style="margin-bottom: 24px;">
+        <div class="profile-detail-top">
+            <div class="avatar-circle large-avatar">
+                {{ meetup.sport_type[:1] }}
+            </div>
+            <div>
+                <h1>{{ meetup.title|default(meetup.sport_type ~ ' Meetup') }}</h1>
+                <span class="mini-badge">Completed Meetup</span>
+                <p class="profile-detail-subtitle">
+                    {{ meetup.meetup_date }} at {{ meetup.meetup_time }} · {{ meetup.location }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% if participants %}
+        <div class="profile-card-grid">
+            {% for participant in participants %}
+                <article class="profile-card-v2">
+                    <div class="profile-card-top">
+                        <div class="avatar-circle">
+                            {{ participant.full_name[:1] }}
+                        </div>
+                        <div>
+                            <h2>{{ participant.full_name }}</h2>
+                            <span class="mini-badge">Participant</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-info-list">
+                        <div class="profile-info-row">
+                            <span>Sport Interest</span>
+                            <strong>{{ participant.sport_interest or 'Not provided' }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Skill Level</span>
+                            <strong>{{ participant.skill_level or 'Not provided' }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>State</span>
+                            <strong>{{ participant.state or 'Not provided' }}</strong>
+                        </div>
+                    </div>
+
+                    {% if participant.already_rated %}
+                        <button class="btn outline-btn full-width" disabled>
+                            Already Rated
+                        </button>
+                    {% else %}
+                        <a class="btn secondary-btn full-width" href="{{ url_for('submit_player_rating', meetup_id=meetup.id, rated_user_id=participant.user_id) }}">
+                            Rate This Player
+                        </a>
+                    {% endif %}
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state-box">
+            <h2>No players available to rate</h2>
+            <p>There are no other confirmed participants from this meetup.</p>
+        </div>
+    {% endif %}
+
+    <div class="profile-detail-actions">
+        <a class="secondary-btn" href="{{ url_for('completed_meetups_for_rating') }}">
+            Back to Completed Meetups
+        </a>
+    </div>
+</section>
+
+{% endblock %}
