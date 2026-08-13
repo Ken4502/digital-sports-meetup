@@ -72,9 +72,9 @@
 
             <form action="{{ url_for('toggle_user_status', user_id=user.id) }}" method="POST">
                 {% if user.status == 'active' %}
-                    <button type="submit" class="btn outline-btn" style="border-color: var(--warning-text); color: var(--warning-text);">Disable Account</button>
+                    <button type="submit" class="btn warning-btn">Disable Account</button>
                 {% else %}
-                    <button type="submit" class="btn outline-btn" style="border-color: var(--success-text); color: var(--success-text);">Enable Account</button>
+                    <button type="submit" class="btn success-btn">Enable Account</button>
                 {% endif %}
             </form>
 

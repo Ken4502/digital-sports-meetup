@@ -234,7 +234,7 @@ body {
     border: none;
     text-decoration: none;
     cursor: pointer;
-    border-radius: 999px;
+    border-radius: 20px;
     padding: 14px 22px;
     font-size: 15px;
     font-weight: 900;
@@ -284,6 +284,28 @@ body {
     color: var(--cream);
 }
 
+.warning-btn {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+    border: 1px solid var(--warning-text);
+}
+
+.warning-btn:hover {
+    background: var(--warning-text);
+    color: var(--cream);
+}
+
+.success-btn {
+    background: var(--success-bg);
+    color: var(--success-text);
+    border: 1px solid var(--success-text);
+}
+
+.success-btn:hover {
+    background: var(--success-text);
+    color: var(--cream);
+}
+
 .full-width {
     width: 100%;
 }
@@ -292,6 +314,11 @@ body {
     width: 100%;
     padding: 17px 24px;
     font-size: 16px;
+}
+
+summary.btn {
+    cursor: pointer;
+    list-style: none;
 }
 
 /* =========================
@@ -982,6 +1009,9 @@ body {
 
 .organizer-actions {
     margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 /* =========================
@@ -1635,7 +1665,7 @@ body {
     color: #ffffff;
     text-decoration: none;
     padding: 10px 18px;
-    border-radius: 999px;
+    border-radius: 20px;
     font-size: 14px;
     font-weight: 700;
     transition: 0.2s ease;
@@ -1729,6 +1759,7 @@ body {
     margin-top: 26px;
     display: flex;
     justify-content: flex-end;
+    gap: 14px;
 }
 
 @media (max-width: 640px) {
@@ -1866,7 +1897,7 @@ body {
     justify-content: center;
     min-height: 46px;
     padding: 0 22px;
-    border-radius: 999px;
+    border-radius: 20px;
     font-weight: 800;
     text-decoration: none;
     transition: 0.2s ease;
@@ -2151,6 +2182,7 @@ body {
     font-weight: 500;
     color: #666;
     border-bottom: 2px solid transparent;
+    border-radius: 20px;
 }
 
 .tab-btn.active {
@@ -2184,7 +2216,7 @@ body {
 .table-btn {
     padding: 6px 12px;
     font-size: 13px;
-    border-radius: 12px;
+    border-radius: 20px;
 }
 
 .danger-btn {

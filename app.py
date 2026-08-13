@@ -1354,14 +1354,10 @@ def leave_meetup(meetup_id):
     return redirect(url_for("meetup_detail", meetup_id=meetup_id))
 
 # =========================================================
-# Sprint 3 Stage 3 and Stage 4
+# Player Rating and Review Management
 # SCRUM-351: Rate players only after meetup completed
-# SCRUM-361: Rate only participants who attended same meetup
-# SCRUM-44: Rate other players after completed meetup
-# =========================================================
-
-# =========================================================
-# Player Rating Management
+# SCRUM-361: Rate only participants who attended the same meetup
+# SCRUM-44: Submit player rating after completed meetup
 # =========================================================
 
 RATING_FIELDS = [
@@ -1372,41 +1368,71 @@ RATING_FIELDS = [
 ]
 
 COMPLETED_MEETUP_STATUSES = ["past", "completed", "ended"]
+REMOVED_RSVP_STATUSES = ["cancelled", "withdrawn", "removed", "rejected"]
+ALLOWED_RSVP_STATUSES = ["", "confirmed", "active", "joined", "attended", "completed"]
 
 
 def normalize_status(value):
     """
-    Convert status value into lowercase text for consistent checking.
+    Convert status text to lowercase for consistent comparison.
     """
 
     return str(value or "").strip().lower()
 
 
-def prepare_meetup_for_display(meetup):
+def normalize_text(value):
     """
-    Prepare meetup values before showing them in rating pages.
+    Clean text value for display and comparison.
     """
+
+    return str(value or "").strip()
+
+
+def get_display_name(user):
+    """
+    Return the best available public display name for a user.
+    """
+
+    return (
+        normalize_text(user.get("full_name"))
+        or normalize_text(user.get("name"))
+        or normalize_text(user.get("email"))
+        or "Unknown User"
+    )
+
+
+def prepare_meetup_for_rating_display(meetup):
+    """
+    Prepare meetup fields before displaying them in rating pages.
+    """
+
+    meetup = meetup or {}
 
     if not meetup.get("title"):
         meetup["title"] = f"{meetup.get('sport_type', 'Sports')} Meetup"
 
-    if not meetup.get("location"):
+    location = normalize_text(meetup.get("location"))
+
+    if not location:
         location_parts = [
             meetup.get("venue_name", ""),
             meetup.get("address", ""),
             meetup.get("postcode", ""),
             meetup.get("state", ""),
         ]
+        clean_parts = [normalize_text(part) for part in location_parts if normalize_text(part)]
+        location = ", ".join(clean_parts)
 
-        clean_parts = [part for part in location_parts if part]
-        meetup["location"] = ", ".join(clean_parts) if clean_parts else "Location not provided"
+    meetup["location"] = location or "Location not provided"
+    meetup["status"] = normalize_status(meetup.get("status")) or "active"
+    meetup["available_slots"] = calculate_available_slots(meetup)
 
     return meetup
 
 
-def update_meetup_to_past_if_needed(meetup_id, meetup):
+def update_meetup_to_past_for_rating_if_needed(meetup_id, meetup):
     """
-    If an active meetup date and time has already passed, update it to past.
+    If an active meetup date/time has passed, update it to past for rating eligibility.
     """
 
     status = normalize_status(meetup.get("status"))
@@ -1414,27 +1440,29 @@ def update_meetup_to_past_if_needed(meetup_id, meetup):
     if status == "active" and is_meetup_past(meetup):
         try:
             mark_meetup_as_past(meetup_id)
-            meetup["status"] = "past"
         except Exception:
-            meetup["status"] = "past"
+            pass
+
+        meetup["status"] = "past"
 
     return meetup
 
 
 def is_meetup_completed_for_rating(meetup_id, meetup):
     """
-    A meetup can be rated only when it is already completed, ended, or past.
+    Rating is allowed only for meetups that are completed, ended, or past.
+    Cancelled, deleted, draft, and upcoming active meetups are not rateable.
     """
 
-    meetup = update_meetup_to_past_if_needed(meetup_id, meetup)
+    meetup = update_meetup_to_past_for_rating_if_needed(meetup_id, meetup)
     status = normalize_status(meetup.get("status"))
 
     return status in COMPLETED_MEETUP_STATUSES
 
 
-def get_meetup_document(meetup_id):
+def get_meetup_document_for_rating(meetup_id):
     """
-    Retrieve one meetup document from Firestore.
+    Read one meetup document from Firestore.
     """
 
     meetup_doc = db.collection("meetups").document(meetup_id).get()
@@ -1445,62 +1473,12 @@ def get_meetup_document(meetup_id):
     meetup = meetup_doc.to_dict() or {}
     meetup["id"] = meetup_doc.id
 
-    return prepare_meetup_for_display(meetup)
+    return prepare_meetup_for_rating_display(meetup)
 
 
-def get_confirmed_participant_ids_for_meetup(meetup_id, meetup=None):
+def get_user_document_for_rating(user_id):
     """
-    Get all confirmed participants for a meetup.
-
-    The system checks both:
-    1. participant_ids / participants stored inside the meetup document
-    2. rsvps collection records
-    """
-
-    participant_ids = []
-
-    if meetup:
-        for participant_id in meetup.get("participant_ids", []) or []:
-            if participant_id and participant_id not in participant_ids:
-                participant_ids.append(participant_id)
-
-        for participant_id in meetup.get("participants", []) or []:
-            if participant_id and participant_id not in participant_ids:
-                participant_ids.append(participant_id)
-
-    try:
-        rsvp_docs = db.collection("rsvps").where("meetup_id", "==", meetup_id).stream()
-
-        for rsvp_doc in rsvp_docs:
-            rsvp = rsvp_doc.to_dict() or {}
-            rsvp_status = normalize_status(rsvp.get("status", "confirmed"))
-            participant_id = rsvp.get("participant_id")
-
-            if rsvp_status in ["cancelled", "withdrawn", "removed", "rejected"]:
-                continue
-
-            if participant_id and participant_id not in participant_ids:
-                participant_ids.append(participant_id)
-
-    except Exception:
-        pass
-
-    return participant_ids
-
-
-def participant_joined_meetup(participant_id, meetup_id, meetup=None):
-    """
-    Check whether a participant joined the selected meetup.
-    """
-
-    participant_ids = get_confirmed_participant_ids_for_meetup(meetup_id, meetup)
-    return participant_id in participant_ids
-
-
-def get_public_participant_profile(user_id):
-    """
-    Get safe public participant profile details only.
-    Private fields such as email, phone, and password are not returned.
+    Read one user document from Firestore.
     """
 
     user_doc = db.collection("users").document(user_id).get()
@@ -1509,45 +1487,143 @@ def get_public_participant_profile(user_id):
         return None
 
     user = user_doc.to_dict() or {}
+    user["user_id"] = user_doc.id
 
-    if user.get("role") != "participant":
+    return user
+
+
+def get_public_participant_profile_for_rating(user_id):
+    """
+    Return safe public participant data only.
+    This avoids exposing email, phone number, password hash, and private fields.
+    """
+
+    user = get_user_document_for_rating(user_id)
+
+    if not user:
+        return None
+
+    if normalize_status(user.get("role")) != "participant":
         return None
 
     if normalize_status(user.get("status", "active")) != "active":
         return None
 
     return {
-        "user_id": user_doc.id,
-        "full_name": user.get("full_name", ""),
-        "sport_interest": user.get("sport_interest", ""),
-        "skill_level": user.get("skill_level", ""),
-        "state": user.get("state", ""),
-        "status": user.get("status", "active"),
+        "user_id": user.get("user_id"),
+        "full_name": get_display_name(user),
+        "sport_interest": normalize_text(user.get("sport_interest")) or "Not provided",
+        "skill_level": normalize_text(user.get("skill_level")) or "Not provided",
+        "state": normalize_text(user.get("state")) or "Not provided",
+        "bio": normalize_text(user.get("bio")),
+        "status": normalize_status(user.get("status", "active")),
     }
+
+
+def add_unique_participant_id(participant_ids, participant_id):
+    """
+    Add participant ID once only while keeping original order.
+    """
+
+    participant_id = normalize_text(participant_id)
+
+    if participant_id and participant_id not in participant_ids:
+        participant_ids.append(participant_id)
+
+
+def get_confirmed_participant_ids_for_rating(meetup_id, meetup=None):
+    """
+    Get confirmed participant IDs for one meetup.
+
+    The function checks both places because the project stores joined users in:
+    1. meetup document participant_ids / participants arrays
+    2. rsvps collection records
+
+    If a participant appears in RSVP with cancelled/withdrawn/removed/rejected status,
+    the participant will be excluded from rating eligibility.
+    """
+
+    participant_ids = []
+    removed_ids = set()
+
+    if meetup:
+        for participant_id in meetup.get("participant_ids", []) or []:
+            add_unique_participant_id(participant_ids, participant_id)
+
+        for participant_id in meetup.get("participants", []) or []:
+            add_unique_participant_id(participant_ids, participant_id)
+
+    try:
+        rsvp_docs = db.collection("rsvps").where("meetup_id", "==", meetup_id).stream()
+
+        for rsvp_doc in rsvp_docs:
+            rsvp = rsvp_doc.to_dict() or {}
+            participant_id = normalize_text(rsvp.get("participant_id"))
+            rsvp_status = normalize_status(rsvp.get("status", "confirmed"))
+
+            if not participant_id:
+                continue
+
+            if rsvp_status in REMOVED_RSVP_STATUSES:
+                removed_ids.add(participant_id)
+                continue
+
+            if rsvp_status in ALLOWED_RSVP_STATUSES:
+                add_unique_participant_id(participant_ids, participant_id)
+
+    except Exception:
+        pass
+
+    return [participant_id for participant_id in participant_ids if participant_id not in removed_ids]
+
+
+def participant_joined_meetup_for_rating(participant_id, meetup_id, meetup=None):
+    """
+    Check whether a participant actually joined the selected meetup.
+    """
+
+    participant_id = normalize_text(participant_id)
+    participant_ids = get_confirmed_participant_ids_for_rating(meetup_id, meetup)
+
+    return participant_id in participant_ids
 
 
 def get_rating_document_id(meetup_id, rater_id, rated_user_id):
     """
-    Create a unique rating document ID to prevent duplicate rating.
+    One participant can rate another participant only once per meetup.
     """
 
     return f"{meetup_id}_{rater_id}_{rated_user_id}"
 
 
-def has_existing_rating(meetup_id, rater_id, rated_user_id):
+def get_rating_document(meetup_id, rater_id, rated_user_id):
     """
-    Check whether the participant already rated the same player for the same meetup.
+    Return one rating document if it exists.
     """
 
     rating_id = get_rating_document_id(meetup_id, rater_id, rated_user_id)
     rating_doc = db.collection("ratings").document(rating_id).get()
 
-    return rating_doc.exists
+    if not rating_doc.exists:
+        return None
+
+    rating = rating_doc.to_dict() or {}
+    rating["id"] = rating_doc.id
+
+    return rating
+
+
+def has_existing_rating(meetup_id, rater_id, rated_user_id):
+    """
+    Check duplicate rating.
+    """
+
+    return get_rating_document(meetup_id, rater_id, rated_user_id) is not None
 
 
 def get_rating_form_data():
     """
-    Get rating input values from the form.
+    Read rating form values.
     """
 
     return {
@@ -1559,15 +1635,29 @@ def get_rating_form_data():
     }
 
 
+def empty_rating_form_data():
+    """
+    Empty rating form used for GET request.
+    """
+
+    return {
+        "attendance_rating": "",
+        "teamwork_rating": "",
+        "sportsmanship_rating": "",
+        "reliability_rating": "",
+        "comment": "",
+    }
+
+
 def validate_rating_form(form_data):
     """
-    Validate player rating form input.
+    Validate rating scores and comment.
     """
 
     errors = []
 
     for field_name, field_label in RATING_FIELDS:
-        value = form_data.get(field_name, "")
+        value = normalize_text(form_data.get(field_name))
 
         if not value:
             errors.append(f"{field_label} rating is required.")
@@ -1582,7 +1672,7 @@ def validate_rating_form(form_data):
         if score < 1 or score > 5:
             errors.append(f"{field_label} rating must be between 1 and 5.")
 
-    comment = form_data.get("comment", "")
+    comment = normalize_text(form_data.get("comment"))
 
     if len(comment) > 300:
         errors.append("Comment cannot be more than 300 characters.")
@@ -1592,7 +1682,7 @@ def validate_rating_form(form_data):
 
 def calculate_average_rating(form_data):
     """
-    Calculate the average rating score from all rating categories.
+    Calculate average score across all rating categories.
     """
 
     total_score = 0
@@ -1601,6 +1691,73 @@ def calculate_average_rating(form_data):
         total_score += int(form_data[field_name])
 
     return round(total_score / len(RATING_FIELDS), 2)
+
+
+def get_rating_summary_for_user(user_id):
+    """
+    Calculate rating summary for one rated participant.
+    """
+
+    reviews = []
+
+    try:
+        rating_docs = db.collection("ratings").where("rated_user_id", "==", user_id).stream()
+
+        for rating_doc in rating_docs:
+            rating = rating_doc.to_dict() or {}
+            rating["id"] = rating_doc.id
+
+            if normalize_status(rating.get("status", "active")) != "active":
+                continue
+
+            reviews.append(rating)
+
+    except Exception:
+        reviews = []
+
+    if not reviews:
+        return {
+            "review_count": 0,
+            "average_rating": 0,
+            "reviews": [],
+        }
+
+    total_average = sum(float(review.get("average_rating", 0)) for review in reviews)
+
+    reviews.sort(
+        key=lambda review: (
+            str(review.get("meetup_date", "")),
+            str(review.get("created_at", "")),
+        ),
+        reverse=True
+    )
+
+    return {
+        "review_count": len(reviews),
+        "average_rating": round(total_average / len(reviews), 2),
+        "reviews": reviews,
+    }
+
+
+def build_rateable_participant_card(meetup_id, rater_id, participant_id):
+    """
+    Prepare one participant card for the rate participants page.
+    """
+
+    participant = get_public_participant_profile_for_rating(participant_id)
+
+    if not participant:
+        return None
+
+    existing_rating = get_rating_document(meetup_id, rater_id, participant_id)
+    summary = get_rating_summary_for_user(participant_id)
+
+    participant["already_rated"] = existing_rating is not None
+    participant["existing_rating"] = existing_rating
+    participant["review_count"] = summary["review_count"]
+    participant["average_rating"] = summary["average_rating"]
+
+    return participant
 
 
 @app.route("/completed-meetups")
@@ -1625,16 +1782,27 @@ def completed_meetups_for_rating():
         for meetup_doc in meetup_docs:
             meetup = meetup_doc.to_dict() or {}
             meetup["id"] = meetup_doc.id
-            meetup = prepare_meetup_for_display(meetup)
+            meetup = prepare_meetup_for_rating_display(meetup)
 
             if not is_meetup_completed_for_rating(meetup_doc.id, meetup):
                 continue
 
-            if not participant_joined_meetup(participant_id, meetup_doc.id, meetup):
+            if not participant_joined_meetup_for_rating(participant_id, meetup_doc.id, meetup):
                 continue
 
-            participant_ids = get_confirmed_participant_ids_for_meetup(meetup_doc.id, meetup)
+            participant_ids = get_confirmed_participant_ids_for_rating(meetup_doc.id, meetup)
+            other_participant_ids = [pid for pid in participant_ids if pid != participant_id]
+            already_rated_count = 0
+
+            for rated_user_id in other_participant_ids:
+                if has_existing_rating(meetup_doc.id, participant_id, rated_user_id):
+                    already_rated_count += 1
+
             meetup["participant_count"] = len(participant_ids)
+            meetup["rateable_count"] = len(other_participant_ids)
+            meetup["already_rated_count"] = already_rated_count
+            meetup["remaining_rating_count"] = max(len(other_participant_ids) - already_rated_count, 0)
+            meetup["rating_progress_text"] = f"{already_rated_count}/{len(other_participant_ids)} reviewed"
 
             completed_meetups.append(meetup)
 
@@ -1659,7 +1827,7 @@ def completed_meetups_for_rating():
 @app.route("/meetup/<meetup_id>/rate")
 def rate_participants(meetup_id):
     """
-    Show players who can be rated for a selected completed meetup.
+    Show only eligible participants from the same completed meetup.
     """
 
     if session.get("role") != "participant":
@@ -1670,7 +1838,7 @@ def rate_participants(meetup_id):
         return redirect(url_for("completed_meetups_for_rating"))
 
     rater_id = session.get("user_id")
-    meetup = get_meetup_document(meetup_id)
+    meetup = get_meetup_document_for_rating(meetup_id)
 
     if not meetup:
         flash("Meetup not found.", "error")
@@ -1680,46 +1848,42 @@ def rate_participants(meetup_id):
         flash("You can only rate players after the meetup is completed.", "error")
         return redirect(url_for("completed_meetups_for_rating"))
 
-    if not participant_joined_meetup(rater_id, meetup_id, meetup):
+    if not participant_joined_meetup_for_rating(rater_id, meetup_id, meetup):
         flash("You can only rate players from meetups you attended.", "error")
         return redirect(url_for("completed_meetups_for_rating"))
 
-    participant_ids = get_confirmed_participant_ids_for_meetup(meetup_id, meetup)
+    participant_ids = get_confirmed_participant_ids_for_rating(meetup_id, meetup)
     eligible_participants = []
 
     for participant_id in participant_ids:
         if participant_id == rater_id:
             continue
 
-        participant = get_public_participant_profile(participant_id)
+        participant = build_rateable_participant_card(meetup_id, rater_id, participant_id)
 
-        if not participant:
-            continue
-
-        participant["already_rated"] = has_existing_rating(
-            meetup_id,
-            rater_id,
-            participant_id
-        )
-
-        eligible_participants.append(participant)
+        if participant:
+            eligible_participants.append(participant)
 
     eligible_participants.sort(
         key=lambda participant: participant.get("full_name", "").lower()
     )
 
+    already_rated_count = sum(1 for participant in eligible_participants if participant["already_rated"])
+
     return render_template(
         "rate_participants.html",
         meetup=meetup,
         participants=eligible_participants,
-        participant_count=len(eligible_participants)
+        participant_count=len(eligible_participants),
+        already_rated_count=already_rated_count,
+        remaining_count=max(len(eligible_participants) - already_rated_count, 0),
     )
 
 
 @app.route("/meetup/<meetup_id>/rate/<rated_user_id>", methods=["GET", "POST"])
 def submit_player_rating(meetup_id, rated_user_id):
     """
-    Submit a rating for another participant from the same completed meetup.
+    Submit rating for another participant from the same completed meetup.
     """
 
     if session.get("role") != "participant":
@@ -1735,7 +1899,7 @@ def submit_player_rating(meetup_id, rated_user_id):
         flash("You cannot rate yourself.", "error")
         return redirect(url_for("rate_participants", meetup_id=meetup_id))
 
-    meetup = get_meetup_document(meetup_id)
+    meetup = get_meetup_document_for_rating(meetup_id)
 
     if not meetup:
         flash("Meetup not found.", "error")
@@ -1745,31 +1909,27 @@ def submit_player_rating(meetup_id, rated_user_id):
         flash("You can only rate players after the meetup is completed.", "error")
         return redirect(url_for("completed_meetups_for_rating"))
 
-    if not participant_joined_meetup(rater_id, meetup_id, meetup):
+    if not participant_joined_meetup_for_rating(rater_id, meetup_id, meetup):
         flash("You can only rate players from meetups you attended.", "error")
         return redirect(url_for("completed_meetups_for_rating"))
 
-    if not participant_joined_meetup(rated_user_id, meetup_id, meetup):
+    if not participant_joined_meetup_for_rating(rated_user_id, meetup_id, meetup):
         flash("You can only rate participants who attended the same meetup.", "error")
         return redirect(url_for("rate_participants", meetup_id=meetup_id))
 
-    rated_user = get_public_participant_profile(rated_user_id)
+    rated_user = get_public_participant_profile_for_rating(rated_user_id)
 
     if not rated_user:
         flash("Selected participant profile was not found.", "error")
         return redirect(url_for("rate_participants", meetup_id=meetup_id))
 
-    if has_existing_rating(meetup_id, rater_id, rated_user_id):
-        flash("You have already rated this player for this meetup.", "warning")
+    existing_rating = get_rating_document(meetup_id, rater_id, rated_user_id)
+
+    if existing_rating:
+        flash("You have already reviewed this player for this meetup.", "warning")
         return redirect(url_for("rate_participants", meetup_id=meetup_id))
 
-    form_data = {
-        "attendance_rating": "",
-        "teamwork_rating": "",
-        "sportsmanship_rating": "",
-        "reliability_rating": "",
-        "comment": "",
-    }
+    form_data = empty_rating_form_data()
 
     if request.method == "POST":
         form_data = get_rating_form_data()
@@ -1784,9 +1944,10 @@ def submit_player_rating(meetup_id, rated_user_id):
                 meetup=meetup,
                 rated_user=rated_user,
                 form_data=form_data,
-                rating_fields=RATING_FIELDS
+                rating_fields=RATING_FIELDS,
             )
 
+        rater = get_user_document_for_rating(rater_id) or {}
         average_rating = calculate_average_rating(form_data)
         rating_id = get_rating_document_id(meetup_id, rater_id, rated_user_id)
 
@@ -1797,6 +1958,7 @@ def submit_player_rating(meetup_id, rated_user_id):
             "meetup_time": meetup.get("meetup_time", ""),
             "sport_type": meetup.get("sport_type", ""),
             "rater_id": rater_id,
+            "rater_name": get_display_name(rater),
             "rated_user_id": rated_user_id,
             "rated_user_name": rated_user.get("full_name", ""),
             "attendance_rating": int(form_data["attendance_rating"]),
@@ -1804,7 +1966,7 @@ def submit_player_rating(meetup_id, rated_user_id):
             "sportsmanship_rating": int(form_data["sportsmanship_rating"]),
             "reliability_rating": int(form_data["reliability_rating"]),
             "average_rating": average_rating,
-            "comment": form_data.get("comment", ""),
+            "comment": normalize_text(form_data.get("comment")),
             "status": "active",
             "created_at": firestore.SERVER_TIMESTAMP,
             "updated_at": firestore.SERVER_TIMESTAMP,
@@ -1812,7 +1974,7 @@ def submit_player_rating(meetup_id, rated_user_id):
 
         db.collection("ratings").document(rating_id).set(rating_data)
 
-        flash("Player rating submitted successfully.", "success")
+        flash("Player review submitted successfully.", "success")
         return redirect(url_for("rate_participants", meetup_id=meetup_id))
 
     return render_template(
@@ -1820,8 +1982,32 @@ def submit_player_rating(meetup_id, rated_user_id):
         meetup=meetup,
         rated_user=rated_user,
         form_data=form_data,
-        rating_fields=RATING_FIELDS
+        rating_fields=RATING_FIELDS,
     )
+
+
+@app.route("/my-reviews")
+def my_reviews():
+    """
+    Show reviews received by the logged-in participant.
+    """
+
+    if session.get("role") != "participant":
+        flash("Only participants can view player reviews.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return render_template("my_reviews.html", reviews=[], summary={"review_count": 0, "average_rating": 0})
+
+    current_user_id = session.get("user_id")
+    summary = get_rating_summary_for_user(current_user_id)
+
+    return render_template(
+        "my_reviews.html",
+        reviews=summary["reviews"],
+        summary=summary,
+    )
+
 
 
 @app.route("/manage-meetups")
@@ -1851,7 +2037,14 @@ def manage_meetups():
 
 
 @app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
+@app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
 def edit_meetup(meetup_id):
+    """
+    Sprint 3 Stage 1
+    SCRUM-194: Organizer edit necessary meetup information.
+    SCRUM-432: Only the meetup owner can edit their own meetup.
+    Admin is also allowed to edit for moderation purposes.
+    """
 
     current_role = session.get("role")
     current_user_id = session.get("user_id")
@@ -2075,7 +2268,6 @@ def meetup_participants(meetup_id):
         participant_count=len(participants)
     )
     """
-
     Admin/Organizer page to edit an existing meetup.
     """
     if session.get("role") not in ["admin", "organizer"]:
@@ -2194,6 +2386,7 @@ def admin_dashboard():
         user_docs = db.collection("users").stream()
         for doc in user_docs:
             user = doc.to_dict()
+            # Exclude admins from the list
             if user.get("role") != "admin":
                 user["id"] = doc.id
                 all_users.append(user)
@@ -2331,122 +2524,6 @@ def admin_edit_user(user_id):
     flash("User details updated successfully.", "success")
     return redirect(url_for("manage_user", user_id=user_id))
 
-
-@app.route("/admin/review/<review_id>/edit", methods=["GET", "POST"])
-def edit_review(review_id):
-    if session.get("role") != "admin":
-        flash("You must be an admin to access this page.", "error")
-        return redirect(url_for("index"))
-
-    if not require_firebase():
-        return redirect(url_for("admin_dashboard"))
-
-    review_ref = db.collection("ratings").document(review_id)
-    review_doc = review_ref.get()
-
-    if not review_doc.exists:
-        flash("Review not found.", "error")
-        return redirect(url_for("admin_dashboard"))
-
-    review = review_doc.to_dict()
-    review["id"] = review_doc.id
-
-    if request.method == "POST":
-        form_data = get_rating_form_data()
-        errors = validate_rating_form(form_data)
-
-        if errors:
-            for error in errors:
-                flash(error, "error")
-            rater_doc = db.collection("users").document(review.get("rater_id", "")).get()
-            review["reviewer_name"] = rater_doc.to_dict().get("full_name", "Unknown") if rater_doc.exists else "Unknown"
-            return render_template("edit_review.html", review=review)
-
-        average_rating = calculate_average_rating(form_data)
-
-        review_ref.update({
-            "attendance_rating": int(form_data["attendance_rating"]),
-            "teamwork_rating": int(form_data["teamwork_rating"]),
-            "sportsmanship_rating": int(form_data["sportsmanship_rating"]),
-            "reliability_rating": int(form_data["reliability_rating"]),
-            "average_rating": average_rating,
-            "comment": form_data["comment"],
-            "updated_at": firestore.SERVER_TIMESTAMP
-        })
-
-        flash("Review updated successfully.", "success")
-        return redirect(url_for("manage_reviews"))
-
-    rater_doc = db.collection("users").document(review.get("rater_id", "")).get()
-    review["reviewer_name"] = rater_doc.to_dict().get("full_name", "Unknown") if rater_doc.exists else "Unknown"
-    
-    return render_template("edit_review.html", review=review)
-
-
-
-@app.route("/manage-reviews")
-def manage_reviews():
-    if session.get("role") != "admin":
-        flash("You must be an admin to access this page.", "error")
-        return redirect(url_for("index"))
-
-    if not require_firebase():
-        return render_template("manage_reviews.html", reviews=[])
-
-    all_reviews = []
-    try:
-        review_docs = db.collection("ratings").stream()
-        for doc in review_docs:
-            review = doc.to_dict()
-            review["id"] = doc.id
-
-            review["reviewee_name"] = review.get("rated_user_name", "Unknown")
-
-            rater_id = review.get("rater_id")
-            if rater_id:
-                rater_doc = db.collection("users").document(rater_id).get()
-                if rater_doc.exists:
-                    review["reviewer_name"] = rater_doc.to_dict().get("full_name", "Unknown")
-                else:
-                    review["reviewer_name"] = "Unknown"
-            else:
-                review["reviewer_name"] = "Unknown"
-
-            review["average_rating"] = review.get("average_rating", 0)
-            
-            created_at = review.get("created_at")
-            if created_at and isinstance(created_at, datetime):
-                review["created_at"] = created_at.strftime("%Y-%m-%d %H:%M")
-            else:
-                review["created_at"] = "N/A"
-
-
-            all_reviews.append(review)
-    except Exception as e:
-        flash(f"An error occurred while fetching reviews: {e}", "error")
-
-    return render_template("manage_reviews.html", reviews=all_reviews)
-
-
-@app.route("/admin/review/<review_id>/delete", methods=["POST"])
-def delete_review(review_id):
-    if session.get("role") != "admin":
-        flash("You must be an admin to access this page.", "error")
-        return redirect(url_for("index"))
-
-    if not require_firebase():
-        return redirect(url_for("admin_dashboard"))
-
-    review_ref = db.collection("ratings").document(review_id)
-    review_doc = review_ref.get()
-
-    if not review_doc.exists:
-        flash("Review not found.", "error")
-        return redirect(url_for("admin_dashboard"))
-
-    review_ref.delete()
-    flash("Review deleted successfully.", "success")
-    return redirect(url_for("manage_reviews"))
 
 # =========================================================
 # Sprint 2 Stage 2

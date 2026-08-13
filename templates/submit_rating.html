@@ -2,12 +2,13 @@
 
 {% block content %}
 
-<div class="create-form-card">
-    <div class="form-title-row">
+<section class="profile-page">
+    <div class="profile-page-header">
         <div>
-            <h1>Submit Player Rating</h1>
-            <p>Rate the selected player based on your completed meetup experience.</p>
+            <h1>Submit Player Review</h1>
+            <p>Review the selected player based on your actual completed meetup experience.</p>
         </div>
+        <span class="profile-count">{{ meetup.sport_type }}</span>
     </div>
 
     <div class="profile-detail-card" style="margin-bottom: 24px;">
@@ -19,80 +20,82 @@
                 <h1>{{ rated_user.full_name }}</h1>
                 <span class="mini-badge">Participant</span>
                 <p class="profile-detail-subtitle">
-                    Meetup: {{ meetup.title|default(meetup.sport_type ~ ' Meetup') }} · {{ meetup.meetup_date }}
+                    Meetup: {{ meetup.title }} · {{ meetup.meetup_date }} at {{ meetup.meetup_time }}
                 </p>
             </div>
         </div>
     </div>
 
-    <form method="POST" class="modern-form">
-        <div class="form-row">
-            <div class="form-group">
-                <label for="attendance_rating">Attendance Rating</label>
-                <select id="attendance_rating" name="attendance_rating" required>
-                    <option value="">Select rating</option>
-                    {% for score in range(1, 6) %}
-                        <option value="{{ score }}" {% if form_data.attendance_rating == score|string %}selected{% endif %}>
-                            {{ score }} / 5
-                        </option>
-                    {% endfor %}
-                </select>
+    <div class="create-form-card">
+        <form method="POST" class="modern-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="attendance_rating">Attendance</label>
+                    <select id="attendance_rating" name="attendance_rating" required>
+                        <option value="">Select score</option>
+                        {% for score in range(1, 6) %}
+                            <option value="{{ score }}" {% if form_data.attendance_rating == score|string %}selected{% endif %}>
+                                {{ score }} / 5
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <small>Did the player attend and participate properly?</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="teamwork_rating">Teamwork</label>
+                    <select id="teamwork_rating" name="teamwork_rating" required>
+                        <option value="">Select score</option>
+                        {% for score in range(1, 6) %}
+                            <option value="{{ score }}" {% if form_data.teamwork_rating == score|string %}selected{% endif %}>
+                                {{ score }} / 5
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <small>Did the player cooperate well with others?</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sportsmanship_rating">Sportsmanship</label>
+                    <select id="sportsmanship_rating" name="sportsmanship_rating" required>
+                        <option value="">Select score</option>
+                        {% for score in range(1, 6) %}
+                            <option value="{{ score }}" {% if form_data.sportsmanship_rating == score|string %}selected{% endif %}>
+                                {{ score }} / 5
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <small>Was the player respectful and fair during the meetup?</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="reliability_rating">Reliability</label>
+                    <select id="reliability_rating" name="reliability_rating" required>
+                        <option value="">Select score</option>
+                        {% for score in range(1, 6) %}
+                            <option value="{{ score }}" {% if form_data.reliability_rating == score|string %}selected{% endif %}>
+                                {{ score }} / 5
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <small>Was the player dependable and responsible?</small>
+                </div>
             </div>
 
             <div class="form-group">
-                <label for="teamwork_rating">Teamwork Rating</label>
-                <select id="teamwork_rating" name="teamwork_rating" required>
-                    <option value="">Select rating</option>
-                    {% for score in range(1, 6) %}
-                        <option value="{{ score }}" {% if form_data.teamwork_rating == score|string %}selected{% endif %}>
-                            {{ score }} / 5
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="sportsmanship_rating">Sportsmanship Rating</label>
-                <select id="sportsmanship_rating" name="sportsmanship_rating" required>
-                    <option value="">Select rating</option>
-                    {% for score in range(1, 6) %}
-                        <option value="{{ score }}" {% if form_data.sportsmanship_rating == score|string %}selected{% endif %}>
-                            {{ score }} / 5
-                        </option>
-                    {% endfor %}
-                </select>
+                <label for="comment">Review Comment</label>
+                <textarea id="comment" name="comment" rows="5" maxlength="300" placeholder="Example: Friendly player, arrived on time and cooperated well with the team.">{{ form_data.comment }}</textarea>
+                <small>Optional. Maximum 300 characters.</small>
             </div>
 
-            <div class="form-group">
-                <label for="reliability_rating">Reliability Rating</label>
-                <select id="reliability_rating" name="reliability_rating" required>
-                    <option value="">Select rating</option>
-                    {% for score in range(1, 6) %}
-                        <option value="{{ score }}" {% if form_data.reliability_rating == score|string %}selected{% endif %}>
-                            {{ score }} / 5
-                        </option>
-                    {% endfor %}
-                </select>
+            <div class="form-actions">
+                <a href="{{ url_for('rate_participants', meetup_id=meetup.id) }}" class="btn cancel-btn">Cancel</a>
+                <button type="submit" class="btn primary-btn">Submit Review</button>
             </div>
-        </div>
-
-        <div class="form-group">
-            <label for="comment">Comment</label>
-            <textarea id="comment" name="comment" rows="4" maxlength="300" placeholder="Write optional feedback about this player">{{ form_data.comment }}</textarea>
-            <small>Maximum 300 characters.</small>
-        </div>
-
-        <div class="form-actions">
-            <a href="{{ url_for('rate_participants', meetup_id=meetup.id) }}" class="btn cancel-btn">
-                Cancel
-            </a>
-            <button type="submit" class="btn primary-btn">
-                Submit Rating
-            </button>
-        </div>
-    </form>
-</div>
+        </form>
+    </div>
+</section>
 
 {% endblock %}
