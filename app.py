@@ -1381,14 +1381,7 @@ def manage_meetups():
 
 
 @app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
-@app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
 def edit_meetup(meetup_id):
-    """
-    Sprint 3 Stage 1
-    SCRUM-194: Organizer edit necessary meetup information.
-    SCRUM-432: Only the meetup owner can edit their own meetup.
-    Admin is also allowed to edit for moderation purposes.
-    """
 
     current_role = session.get("role")
     current_user_id = session.get("user_id")
@@ -1612,6 +1605,7 @@ def meetup_participants(meetup_id):
         participant_count=len(participants)
     )
     """
+
     Admin/Organizer page to edit an existing meetup.
     """
     if session.get("role") not in ["admin", "organizer"]:
