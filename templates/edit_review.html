@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="create-page-layout">
+    <div class="create-hero-card">
+        <span class="small-label">Admin Hub</span>
+        <h1>Edit Review</h1>
+        <p>
+            Update the rating and comment for this review.
+        </p>
+    </div>
+
+    <div class="create-form-card">
+        <form method="POST" action="{{ url_for('edit_review', review_id=review.id) }}" class="modern-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="rating">Rating</label>
+                    <input type="number" id="rating" name="rating" value="{{ review.rating or '' }}" required min="1" max="5">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="comment">Comment</label>
+                <textarea id="comment" name="comment" rows="4">{{ review.comment or '' }}</textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn primary-btn">Save Changes</button>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn cancel-btn">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
