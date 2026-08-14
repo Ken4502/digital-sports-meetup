@@ -1677,6 +1677,9 @@ def validate_rating_form(form_data):
     if len(comment) > 300:
         errors.append("Comment cannot be more than 300 characters.")
 
+    if not comment:
+        errors.append("Comment cannot be empty.")
+
     return errors
 
 
