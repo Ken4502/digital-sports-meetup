@@ -820,54 +820,6 @@ def validate_edit_meetup_form(form_data):
         errors.append("Description cannot be more than 300 characters.")
 
     return errors
-    """
-    A more lenient validation for the edit form.
-    It skips date-in-the-past validation, allowing admins to modify
-    details of meetups that may have already occurred.
-    """
-    errors = []
-
-    sport_type = form_data["sport_type"]
-    capacity = form_data["capacity"]
-    meetup_date = form_data["meetup_date"]
-    meetup_time = form_data["meetup_time"]
-    state = form_data["state"]
-    postcode = form_data["postcode"]
-    venue_name = form_data["venue_name"]
-    address = form_data["address"]
-    description = form_data["description"]
-
-    # Sport type validation
-    if not sport_type:
-        errors.append("Sport type is required.")
-    elif sport_type not in ALLOWED_SPORTS:
-        errors.append("Please select a valid sport type.")
-
-    # Capacity validation
-    if not capacity:
-        errors.append("Participant capacity is required.")
-    elif not capacity.isdigit():
-        errors.append("Participant capacity must be a whole number.")
-    elif int(capacity) < 1:
-        errors.append("Participant capacity must be at least 1.")
-    elif int(capacity) > 100:
-        errors.append("Participant capacity cannot be more than 100.")
-
-    # Location validation
-    if not state:
-        errors.append("State is required.")
-    if postcode and (not postcode.isdigit() or len(postcode) != 5):
-        errors.append("Postcode must be 5 digits.")
-    if not venue_name or len(venue_name) < 3:
-        errors.append("Venue name must be at least 3 characters.")
-    if not address or len(address) < 5:
-        errors.append("Detailed address must be at least 5 characters.")
-
-    # Description validation
-    if len(description) > 300:
-        errors.append("Description cannot be more than 300 characters.")
-
-    return errors
 
 
 # =========================================================
@@ -1677,6 +1629,9 @@ def validate_rating_form(form_data):
     if len(comment) > 300:
         errors.append("Comment cannot be more than 300 characters.")
 
+    if not comment:
+        errors.append("Comment cannot be empty.")
+
     return errors
 
 
@@ -2008,6 +1963,142 @@ def my_reviews():
         summary=summary,
     )
 
+@app.route("/manage-reviews")
+def manage_reviews():
+    """
+    Admin page to view a list of all reviews, with filtering and sorting.
+    """
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return render_template("manage_reviews.html", reviews=[], filters={})
+
+    all_reviews = []
+    filters = {
+        "keyword": request.args.get("keyword", "").strip().lower(),
+    }
+
+    try:
+        review_docs = db.collection("ratings").stream()
+        for doc in review_docs:
+            review = doc.to_dict()
+            review["id"] = doc.id
+
+            # Build searchable text for keyword filtering
+            searchable_text = normalize_search_text(
+                f"{review.get('rater_name', '')} "
+                f"{review.get('rated_user_name', '')} "
+                f"{review.get('comment', '')} "
+                f"{review.get('meetup_title', '')} "
+                f"{review.get('sport_type', '')}"
+            )
+
+            # Apply keyword filter
+            if filters["keyword"]:
+                keyword_terms = filters["keyword"].split()
+                if not all(
+                    term in searchable_text for term in keyword_terms
+                ):
+                    continue
+
+            all_reviews.append(review)
+
+    except Exception as e:
+        flash(f"An error occurred while fetching reviews: {e}", "error")
+        all_reviews = []
+
+    # Sort reviews by creation date, newest first
+    all_reviews.sort(key=lambda r: r.get("created_at", firestore.SERVER_TIMESTAMP), reverse=True)
+
+    return render_template("manage_reviews.html", reviews=all_reviews, filters=filters)
+
+
+@app.route("/admin/review/<review_id>/edit", methods=["GET", "POST"])
+def edit_review(review_id):
+    """
+    Admin page to edit a specific review.
+    """
+    if session.get("role") != "admin":
+        flash("You must be an admin to access this page.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("manage_reviews"))
+
+    review_ref = db.collection("ratings").document(review_id)
+    review_doc = review_ref.get()
+
+    if not review_doc.exists:
+        flash("Review not found.", "error")
+        return redirect(url_for("manage_reviews"))
+
+    review_data = review_doc.to_dict()
+    review_data["id"] = review_id
+
+    if request.method == "POST":
+        form_data = get_rating_form_data() # Reuse existing rating form data getter
+        errors = validate_rating_form(form_data) # Reuse existing rating form validator
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            # Re-render the form with existing review data and errors
+            return render_template(
+                "edit_review.html",
+                review=review_data,
+                form_data=form_data, # Pass submitted form data to retain user input
+                rating_fields=RATING_FIELDS,
+            )
+
+        # Calculate new average rating
+        average_rating = calculate_average_rating(form_data)
+
+        updated_data = {
+            "attendance_rating": int(form_data["attendance_rating"]),
+            "teamwork_rating": int(form_data["teamwork_rating"]),
+            "sportsmanship_rating": int(form_data["sportsmanship_rating"]),
+            "reliability_rating": int(form_data["reliability_rating"]),
+            "comment": normalize_text(form_data["comment"]),
+            "average_rating": average_rating,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+
+        review_ref.update(updated_data)
+        flash("Review updated successfully.", "success")
+        return redirect(url_for("manage_reviews"))
+
+    # For GET request, populate form with existing data
+    return render_template(
+        "edit_review.html",
+        review=review_data,
+        form_data=review_data, # Use existing review data to pre-fill form
+        rating_fields=RATING_FIELDS,
+    )
+
+
+@app.route("/admin/review/<review_id>/delete", methods=["POST"])
+def delete_review(review_id):
+    if session.get("role") != "admin":
+        flash("You do not have permission to perform this action.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("manage_reviews"))
+
+    try:
+        review_ref = db.collection("ratings").document(review_id)
+        if not review_ref.get().exists:
+            flash("Review not found or already deleted.", "error")
+            return redirect(url_for("manage_reviews"))
+
+        review_ref.delete()
+        flash("Review deleted successfully.", "success")
+    except Exception as e:
+        flash(f"An error occurred while deleting the review: {e}", "error")
+
+    return redirect(url_for("manage_reviews"))
 
 
 @app.route("/manage-meetups")
@@ -2036,7 +2127,6 @@ def manage_meetups():
     return render_template("manage_meetups.html", meetups=all_meetups)
 
 
-@app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
 @app.route("/meetup/<meetup_id>/edit", methods=["GET", "POST"])
 def edit_meetup(meetup_id):
     """
