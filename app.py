@@ -1679,7 +1679,9 @@ def calculate_average_rating(form_data):
 
 def get_rating_summary_for_user(user_id):
     """
-    Calculate rating summary for one rated participant.
+    Calculate rating summary for one rated participant, including
+    a category-level analytical breakdown (attendance, teamwork,
+    sportsmanship, reliability).
     """
 
     reviews = []
@@ -1704,9 +1706,40 @@ def get_rating_summary_for_user(user_id):
             "review_count": 0,
             "average_rating": 0,
             "reviews": [],
+            "category_averages": {
+                "attendance_rating": 0,
+                "teamwork_rating": 0,
+                "sportsmanship_rating": 0,
+                "reliability_rating": 0,
+            },
+            "strongest_category": None,
+            "weakest_category": None,
         }
 
     total_average = sum(float(review.get("average_rating", 0)) for review in reviews)
+
+    # Category-level breakdown across all reviews
+    category_totals = {
+        "attendance_rating": 0,
+        "teamwork_rating": 0,
+        "sportsmanship_rating": 0,
+        "reliability_rating": 0,
+    }
+
+    for review in reviews:
+        for field_name, _ in RATING_FIELDS:
+            category_totals[field_name] += safe_int(review.get(field_name), 0)
+
+    review_count = len(reviews)
+    category_averages = {
+        field_name: round(total / review_count, 2)
+        for field_name, total in category_totals.items()
+    }
+
+    # Identify strongest / weakest category using the friendly labels
+    label_by_field = dict(RATING_FIELDS)
+    strongest_field = max(category_averages, key=category_averages.get)
+    weakest_field = min(category_averages, key=category_averages.get)
 
     reviews.sort(
         key=lambda review: (
@@ -1717,9 +1750,12 @@ def get_rating_summary_for_user(user_id):
     )
 
     return {
-        "review_count": len(reviews),
-        "average_rating": round(total_average / len(reviews), 2),
+        "review_count": review_count,
+        "average_rating": round(total_average / review_count, 2),
         "reviews": reviews,
+        "category_averages": category_averages,
+        "strongest_category": label_by_field[strongest_field],
+        "weakest_category": label_by_field[weakest_field],
     }
 
 
@@ -1993,6 +2029,7 @@ def my_reviews():
     )
 
 @app.route("/manage-reviews")
+@app.route("/manage-reviews")
 def manage_reviews():
     """
     Admin page to view a list of all reviews, with filtering and sorting.
@@ -2032,6 +2069,10 @@ def manage_reviews():
                 ):
                     continue
 
+            # Format timestamp for display
+            if review.get("created_at"):
+                review["created_at"] = review["created_at"].strftime("%d/%m/%y")
+
             all_reviews.append(review)
 
     except Exception as e:
@@ -2039,7 +2080,7 @@ def manage_reviews():
         all_reviews = []
 
     # Sort reviews by creation date, newest first
-    all_reviews.sort(key=lambda r: r.get("created_at", firestore.SERVER_TIMESTAMP), reverse=True)
+    all_reviews.sort(key=lambda r: r.get("created_at", ""), reverse=True)
 
     return render_template("manage_reviews.html", reviews=all_reviews, filters=filters)
 
