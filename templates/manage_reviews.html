@@ -35,9 +35,9 @@
             </thead>
             <tbody>
                 {% for review in reviews %}
-                    <tr data-reviewer="{{ review.reviewer_name | lower }}" data-reviewee="{{ review.reviewee_name | lower }}" data-comment="{{ review.comment | lower }}">
-                        <td>{{ review.reviewer_name }}</td>
-                        <td>{{ review.reviewee_name }}</td>
+                    <tr data-reviewer="{{ review.rater_name | lower }}" data-reviewee="{{ review.rated_user_name | lower }}" data-comment="{{ review.comment | lower }}">
+                        <td>{{ review.rater_name }}</td>
+                        <td>{{ review.rated_user_name }}</td>
                         <td>{{ review.average_rating }}</td>
                         <td>{{ review.comment }}</td>
                         <td>{{ review.created_at }}</td>

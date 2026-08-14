@@ -76,6 +76,14 @@
             This is a public profile. Sensitive information like email and phone number are hidden.
         </div>
 
+        <details class="report-section">
+            <summary class="report-toggle">Report Abuse</summary>
+            <form method="POST" action="{{ url_for('report_profile') }}" class="report-form">
+                <textarea name="reason" rows="3" placeholder="Describe the issue with this profile..." required></textarea>
+                <button type="submit" class="btn outline-btn">Submit Report</button>
+            </form>
+        </details>
+
         <div class="profile-detail-actions">
             {% if request.path.startswith('/organizer/organizers') %}
                 <a class="btn secondary-btn" href="{{ url_for('organizer_organizer_profiles') }}">

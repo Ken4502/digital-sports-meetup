@@ -583,6 +583,36 @@
                 <p>Add extra information for participants. This field is optional.</p>
             </div>
 
+            <div class="section-divider">
+                <h3>Payment</h3>
+                <p>Choose whether participants pay to join this meetup.</p>
+            </div>
+
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" name="is_paid" id="isPaid" {% if fd.get('is_paid') %}checked{% endif %} style="width: 20px; height: 20px;">
+                    This is a paid meetup
+                </label>
+                <small>If enabled, participants will pay at the physical counter to confirm their slot.</small>
+            </div>
+
+            <div class="form-group" id="priceGroup" style="{% if not fd.get('is_paid') %}display:none;{% endif %}">
+                <label for="price">Price (RM) <span>*</span></label>
+
+                <input
+                    type="number"
+                    name="price"
+                    id="price"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="Example: 10.00"
+                    value="{{ fd.get('price', '') }}"
+                >
+
+                <small>Amount each participant pays at the counter to confirm their RSVP.</small>
+                <p class="field-error" id="priceError"></p>
+            </div>
+
             <div class="form-group">
                 <label for="description">Meetup Description</label>
 
@@ -744,6 +774,11 @@
         const addressValue = address.value.trim();
         const descriptionValue = description.value.trim();
 
+        const isPaidChecked = document.getElementById("isPaid").checked;
+        const priceValue = document.getElementById("price").value.trim();
+        const priceError = document.getElementById("priceError");
+        const priceInput = document.getElementById("price");
+
         if (sportValue === "") {
             addError(sportType, sportTypeError, "Sport type is required.", errors);
         } else if (!allowedSports.includes(sportValue)) {
@@ -819,6 +854,21 @@
                 block: "center"
             });
         }
+        
+        if (isPaidChecked) {
+            if (priceValue === "") {
+                addError(priceInput, priceError, "Price is required for a paid meetup.", errors);
+            } else if (Number(priceValue) <= 0) {
+                addError(priceInput, priceError, "Price must be greater than 0.", errors);
+            }
+        }
+    });
+
+    const isPaidCheckbox = document.getElementById("isPaid");
+    const priceGroup = document.getElementById("priceGroup");
+
+    isPaidCheckbox.addEventListener("change", function() {
+        priceGroup.style.display = isPaidCheckbox.checked ? "block" : "none";
     });
 </script>
 

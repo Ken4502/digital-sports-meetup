@@ -77,6 +77,27 @@
                             <strong>{{ participant.status or 'active' }}</strong>
                         </div>
                     </div>
+                     {% if meetup.is_paid %}
+                        <div class="profile-info-row">
+                            <span>Payment</span>
+                            <strong>
+                                {% if participant.payment_status == 'paid' %}
+                                    Paid
+                                {% else %}
+                                    Pending
+                                {% endif %}
+                            </strong>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if meetup.is_paid and participant.payment_status != 'paid' %}
+                        <form method="POST" action="{{ url_for('mark_participant_paid', meetup_id=meetup.id, user_id=participant.user_id) }}" style="margin-top: 14px;">
+                            <button type="submit" class="btn primary-btn" style="width: 100%;">
+                                Mark as Paid
+                            </button>
+                        </form>
+                    {% endif %}
                 </article>
             {% endfor %}
         </div>

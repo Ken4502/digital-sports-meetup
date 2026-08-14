@@ -37,6 +37,34 @@
     </div>
 
     {% if reviews %}
+        {% if summary.review_count > 0 %}
+        <div class="profile-detail-card" style="margin-bottom: 24px;">
+            <h2 style="margin-top: 0;">Performance Breakdown</h2>
+            <div class="profile-detail-grid">
+                <div class="profile-detail-item">
+                    <span>Attendance</span>
+                    <strong>{{ summary.category_averages.attendance_rating }} / 5</strong>
+                </div>
+                <div class="profile-detail-item">
+                    <span>Teamwork</span>
+                    <strong>{{ summary.category_averages.teamwork_rating }} / 5</strong>
+                </div>
+                <div class="profile-detail-item">
+                    <span>Sportsmanship</span>
+                    <strong>{{ summary.category_averages.sportsmanship_rating }} / 5</strong>
+                </div>
+                <div class="profile-detail-item">
+                    <span>Reliability</span>
+                    <strong>{{ summary.category_averages.reliability_rating }} / 5</strong>
+                </div>
+            </div>
+
+            <div class="privacy-note-box" style="margin-top: 18px;">
+                <strong>Strongest area:</strong> {{ summary.strongest_category }} —
+                <strong>Room to grow:</strong> {{ summary.weakest_category }}
+            </div>
+        </div>
+        {% endif %}
         <div class="profile-card-grid">
             {% for review in reviews %}
                 <article class="profile-card-v2">
