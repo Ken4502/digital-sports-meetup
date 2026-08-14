@@ -467,9 +467,6 @@ def validate_register_form(form_data):
     if len(bio) > 300:
         errors.append("Bio cannot be more than 300 characters.")
 
-    if not comment:
-        errors.append("Comment cannot be empty.")
-
     return errors
 
 
