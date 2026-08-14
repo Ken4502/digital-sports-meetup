@@ -17,10 +17,6 @@
     <button type="button" class="tab-btn" onclick="showTab('reports')" id="reportsTabBtn">
         Reports {% if reports %}<span class="tab-count">{{ reports | length }}</span>{% endif %}
     </button>
-    <div style="display: flex; gap: 8px;">
-        <a href="{{ url_for('manage_meetups') }}" class="btn table-btn">Manage Meetups</a>
-        <a href="{{ url_for('manage_reviews') }}" class="btn table-btn">Manage Reviews</a>
-    </div>
 </div>
 
 <div id="usersTab" class="tab-content">
