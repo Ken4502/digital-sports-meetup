@@ -2069,9 +2069,10 @@ def manage_reviews():
                 ):
                     continue
 
-            # Format timestamp for display
-            if review.get("created_at"):
-                review["created_at"] = review["created_at"].strftime("%d/%m/%y")
+            # Format timestamp for display, but only if it's a real datetime
+            created_at = review.get("created_at")
+            if created_at and hasattr(created_at, "strftime"):
+                review["created_at"] = created_at.strftime("%d/%m/%y")
 
             all_reviews.append(review)
 
