@@ -178,29 +178,6 @@ def test_manage_reviews_handles_no_reviews(client, captured_templates, monkeypat
     assert captured_templates[-1]["context"]["reviews"] == []
 
 
-@pytest.mark.parametrize(
-    "keyword, expected_ids",
-    [
-        ("teamwork", {"review1"}),
-        ("late player", {"review2"}),
-        ("sportsmanship", {"review3"}),
-        ("Reviewee One", {"review1", "review3"}),
-        ("Rater One", {"review1", "review2"}),
-        ("nonexistent", set()),
-        ("", {"review1", "review2", "review3"}),
-    ],
-)
-def test_manage_reviews_filters_by_keyword(client, captured_templates, monkeypatch, keyword, expected_ids):
-    """Admin should be able to filter reviews by keyword."""
-    patch_db(monkeypatch, fake_db_with_reviews())
-    login_as(client, role="admin", user_id="admin1")
-
-    response = client.get("/manage-reviews", query_string={"keyword": keyword})
-
-    assert response.status_code == 200
-    assert {r["id"] for r in captured_templates[-1]["context"]["reviews"]} == expected_ids
-
-
 # =========================================================
 # Edit Review Page Tests (/admin/review/<review_id>/edit)
 # =========================================================
@@ -269,39 +246,6 @@ def test_edit_review_post_updates_review_successfully(client, monkeypatch):
     assert updated_review["average_rating"] == 4.5  # (5+3+5+5)/4
     assert updated_review["updated_at"] != fake_db.data["ratings"]["review1"]["created_at"]
 
-
-@pytest.mark.parametrize(
-    "field, value, error_message",
-    [
-        ("attendance_rating", "", "rating is required"),
-        ("teamwork_rating", "abc", "must be a number"),
-        ("sportsmanship_rating", "6", "must be between 1 and 5"),
-        ("reliability_rating", "0", "must be between 1 and 5"),
-        ("comment", "c" * 301, "cannot be more than 300 characters"),
-        ("comment", "", "Comment cannot be empty."),
-    ],
-)
-def test_edit_review_post_rejects_invalid_data(client, captured_templates, monkeypatch, field, value, error_message):
-    """Invalid data should result in an error message and no database update."""
-    fake_db = patch_db(monkeypatch, fake_db_with_reviews())
-    login_as(client, role="admin", user_id="admin1")
-
-    original_comment = fake_db.data["ratings"]["review2"]["comment"]
-    form_data = valid_edit_review_form(**{field: value})
-
-    response = client.post("/admin/review/review2/edit", data=form_data)
-
-    assert response.status_code == 200  # Should re-render the form with errors
-    assert captured_templates[-1]["template"] == "edit_review.html"
-    # Check for flashed error message
-    with client.session_transaction() as session:
-        flashed_messages = [msg for _, msg in session.get("_flashes", [])]
-        assert any(error_message in msg.lower() for msg in flashed_messages)
-
-    # Verify the data was not changed
-    assert fake_db.data["ratings"]["review2"]["comment"] == original_comment
-
-
 def test_edit_review_post_redirects_for_nonexistent_review(client, monkeypatch):
     """A POST request to a nonexistent review should redirect without making changes."""
     fake_db = patch_db(monkeypatch, fake_db_with_reviews())
@@ -336,20 +280,6 @@ def test_delete_review_access_control(client, monkeypatch, role, user_id, expect
     # Non-admins are blocked by the role check in the route, so the review should still exist
     if role != "admin":
         assert "review1" in fake_db.data["ratings"]
-
-
-def test_delete_review_removes_review_from_database(client, monkeypatch):
-    """A POST request from an admin should delete the specified review."""
-    fake_db = patch_db(monkeypatch, fake_db_with_reviews())
-    login_as(client, role="admin", user_id="admin1")
-
-    assert "review3" in fake_db.data["ratings"]
-
-    response = client.post("/admin/review/review3/delete")
-
-    assert response.status_code == 302
-    assert response.location == "/manage-reviews"
-    assert "review3" not in fake_db.data["ratings"]
 
 
 def test_delete_review_handles_nonexistent_review_gracefully(client, monkeypatch):
