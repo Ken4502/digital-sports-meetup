@@ -51,6 +51,19 @@
                 <span>Status</span>
                 <strong>{{ user.status | capitalize }}</strong>
             </div>
+
+            {% if user.role == 'participant' and rating_summary %}
+                <div class="profile-detail-item">
+                    <span>Average Rating</span>
+                    <strong>
+                        {% if rating_summary.review_count > 0 %}
+                            {{ rating_summary.average_rating }} / 5 from {{ rating_summary.review_count }} review(s)
+                        {% else %}
+                            No reviews yet
+                        {% endif %}
+                    </strong>
+                </div>
+            {% endif %}
         </div>
 
         <div class="bio-box">
