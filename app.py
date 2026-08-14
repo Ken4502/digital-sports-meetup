@@ -1715,6 +1715,54 @@ def build_rateable_participant_card(meetup_id, rater_id, participant_id):
     return participant
 
 
+def get_participants_for_organizer(organizer_id):
+    """
+    Get all unique active participants from meetups organized by this user.
+    """
+    participants = []
+    seen_ids = set()
+
+    try:
+        meetups = db.collection("meetups").where("organizer_id", "==", organizer_id).stream()
+
+        for meetup_doc in meetups:
+            meetup = meetup_doc.to_dict() or {}
+            participant_ids = meetup.get("participant_ids", []) or meetup.get("participants", [])
+
+            for pid in participant_ids:
+                if pid not in seen_ids:
+                    seen_ids.add(pid)
+
+        if seen_ids:
+            doc_refs = [db.collection("users").document(pid) for pid in seen_ids]
+            user_docs = db.get_all(doc_refs)
+
+            for user_doc in user_docs:
+                if not user_doc.exists:
+                    continue
+
+                user = user_doc.to_dict() or {}
+
+                if user.get("role") != "participant":
+                    continue
+
+                if normalize_status(user.get("status", "active")) != "active":
+                    continue
+
+                participants.append({
+                    "user_id": user_doc.id,
+                    "full_name": get_display_name(user),
+                    "sport_interest": normalize_text(user.get("sport_interest")) or "Not provided",
+                    "skill_level": user.get("skill_level", "Not provided"),
+                    "state": user.get("state", "Not provided"),
+                })
+    except Exception:
+        participants = []
+
+    participants.sort(key=lambda p: p.get("full_name", "").lower())
+    return participants
+
+
 @app.route("/completed-meetups")
 def completed_meetups_for_rating():
     """
@@ -2794,9 +2842,12 @@ def view_participant_profile(user_id):
             "status": participant.get("status", "active"),
         }
 
+        rating_summary = get_rating_summary_for_user(user_id)
+
         return render_template(
             "public_profile.html",
             user=public_profile,
+            rating_summary=rating_summary,
             is_demo=False
         )
 
@@ -2837,6 +2888,7 @@ def participant_organizer_profiles():
 
             public_organizer = {
                 "user_id": user_doc.id,
+                "role": "organizer",
                 "full_name": organizer.get("full_name", ""),
                 "organization_name": organizer.get("organization_name", ""),
                 "experience_years": organizer.get("experience_years", 0),
@@ -2886,6 +2938,7 @@ def participant_view_organizer_profile(user_id):
 
         public_profile = {
             "user_id": user_doc.id,
+            "role": "organizer",
             "full_name": organizer.get("full_name", ""),
             "organization_name": organizer.get("organization_name", ""),
             "experience_years": organizer.get("experience_years", 0),
@@ -3021,9 +3074,12 @@ def organizer_view_participant_profile(user_id):
             "status": participant.get("status", "active"),
         }
 
+        rating_summary = get_rating_summary_for_user(user_id)
+
         return render_template(
             "public_profile.html",
-            user=public_profile
+            user=public_profile,
+            rating_summary=rating_summary
         )
 
     except Exception as e:
@@ -3135,20 +3191,12 @@ def organizer_view_organizer_profile(user_id):
             flash("This organizer profile is not active.", "error")
             return render_template("message.html", message="This organizer profile is not active.")
 
-        public_profile = {
-            "user_id": organizer.get("user_id", user_doc.id),
-            "role": "organizer",
-            "full_name": organizer.get("full_name", ""),
-            "state": organizer.get("state", ""),
-            "organization_name": organizer.get("organization_name", ""),
-            "experience_years": organizer.get("experience_years", 0),
-            "bio": organizer.get("bio", ""),
-            "status": organizer.get("status", "active"),
-        }
+        participants = get_participants_for_organizer(user_id)
 
         return render_template(
-            "public_profile.html",
-            user=public_profile
+            "organizer_view_organizer_profile.html",
+            profile=organizer,
+            participants=participants
         )
 
     except Exception as e:
