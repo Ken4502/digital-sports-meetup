@@ -3,60 +3,58 @@
 {% block content %}
 <section class="profile-detail-page">
     <div class="profile-detail-card">
+
         <div class="profile-detail-top">
             <div class="avatar-circle large-avatar">
                 {{ profile.full_name[:1] }}
             </div>
 
             <div>
-                <h1>{{ profile.full_name }}</h1>
+                <h1>{{ profile.full_name }}'s Participants</h1>
                 <span class="mini-badge organizer-badge">Organizer</span>
                 <p class="profile-detail-subtitle">
-                    Public organizer profile information
+                    Participants from meetups organized by {{ profile.full_name }}
                 </p>
             </div>
         </div>
 
-        <div class="profile-detail-grid">
-            <div class="profile-detail-item">
-                <span>Organization</span>
-                <strong>{{ profile.organization_name or "Not provided" }}</strong>
+        {% if participants %}
+            <div class="profile-card-grid">
+                {% for participant in participants %}
+                    <article class="profile-card-v2">
+                        <div class="profile-card-top">
+                            <div class="avatar-circle">
+                                {{ participant.full_name[:1] }}
+                            </div>
+                            <div>
+                                <h2>{{ participant.full_name }}</h2>
+                                <span class="mini-badge">Participant</span>
+                            </div>
+                        </div>
+
+                        <div class="profile-info-list">
+                            <div class="profile-info-row">
+                                <span>Sport Interest</span>
+                                <strong>{{ participant.sport_interest }}</strong>
+                            </div>
+                            <div class="profile-info-row">
+                                <span>Skill Level</span>
+                                <strong>{{ participant.skill_level }}</strong>
+                            </div>
+                            <div class="profile-info-row">
+                                <span>State</span>
+                                <strong>{{ participant.state }}</strong>
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
             </div>
-
-            <div class="profile-detail-item">
-                <span>Experience</span>
-                <strong>{{ profile.experience_years or 0 }} years</strong>
+        {% else %}
+            <div class="empty-state-box">
+                <h2>No Participants Found</h2>
+                <p>This organizer has not yet had any participants join their meetups.</p>
             </div>
-
-            <div class="profile-detail-item">
-                <span>State</span>
-                <strong>{{ profile.state or "Not provided" }}</strong>
-            </div>
-
-            <div class="profile-detail-item">
-                <span>Status</span>
-                <strong>{{ profile.status | capitalize }}</strong>
-            </div>
-        </div>
-
-        <div class="bio-box">
-            <h2>About Organizer</h2>
-            <p>{{ profile.bio or "This organizer has not added a bio yet." }}</p>
-        </div>
-
-        <div class="privacy-note-box">
-            <strong>Privacy note:</strong>
-            Email and phone number are hidden from public view.
-        </div>
-
-        <details class="report-section">
-            <summary class="report-toggle">Report Abuse</summary>
-            <form method="POST" action="{{ url_for('report_profile') }}" class="report-form">
-                <input type="hidden" name="user_id" value="{{ profile.user_id }}">
-                <textarea name="reason" rows="3" placeholder="Describe the issue with this profile..." required></textarea>
-                <button type="submit" class="btn outline-btn">Submit Report</button>
-            </form>
-        </details>
+        {% endif %}
 
         <div class="profile-detail-actions">
             <a class="btn secondary-btn" href="{{ url_for('organizer_organizer_profiles') }}">
