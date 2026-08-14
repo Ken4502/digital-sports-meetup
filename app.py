@@ -1242,6 +1242,28 @@ def meetup_detail(meetup_id):
 
     return render_template("meetup_detail.html", meetup=meetup)
 
+@app.route("/meetup/<meetup_id>/report", methods=["POST"])
+def report_meetup(meetup_id):
+    if "role" not in session:
+        abort(403)
+
+    reason = request.form.get("reason", "").strip()
+    if not reason:
+        flash("Please provide a reason for the report.", "error")
+        return redirect(url_for("meetup_detail", meetup_id=meetup_id))
+
+    db.collection("reports").add({
+        "type": "meetup",
+        "target_id": meetup_id,
+        "reported_by": session.get("user_id"),
+        "reporter_role": session.get("role"),
+        "reason": reason,
+        "status": "pending",
+        "created_at": firestore.SERVER_TIMESTAMP
+    })
+
+    flash("Report submitted. An admin will review it shortly.", "success")
+    return redirect(url_for("meetup_detail", meetup_id=meetup_id))
 
 @app.route("/meetup/<meetup_id>/rsvp", methods=["POST"])
 def rsvp_meetup(meetup_id):
