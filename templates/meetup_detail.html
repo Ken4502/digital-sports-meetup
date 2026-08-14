@@ -7,7 +7,7 @@
         <div class="detail-header">
             <div>
                 <span class="sport-badge">{{ meetup.sport_type }}</span>
-                <h1>{{ meetup.sport_type }} Meetup</h1>
+                <h1>{{ meetup.title|default(meetup.sport_type ~ ' Meetup') }}</h1>
                 <p>{{ meetup.location }}</p>
             </div>
 
@@ -31,17 +31,17 @@
 
             <div class="detail-item">
                 <span>Venue</span>
-                <strong>{{ meetup.venue_name }}</strong>
+                <strong>{{ meetup.venue_name or 'Not provided' }}</strong>
             </div>
 
             <div class="detail-item">
                 <span>State</span>
-                <strong>{{ meetup.state }}</strong>
+                <strong>{{ meetup.state or 'Not provided' }}</strong>
             </div>
 
             <div class="detail-item">
                 <span>Address</span>
-                <strong>{{ meetup.address }}</strong>
+                <strong>{{ meetup.address or meetup.location }}</strong>
             </div>
 
             <div class="detail-item">
@@ -58,32 +58,33 @@
         {% endif %}
 
         <div class="rsvp-section">
-            {% if meetup.already_joined %}
+            {% if session.role == 'participant' %}
+                {% if meetup.already_joined %}
+                    <div class="notice-box warning">
+                        You have already joined this meetup. Duplicate RSVP is not allowed.
+                    </div>
+
+                    <form method="POST" action="{{ url_for('leave_meetup', meetup_id=meetup.id) }}" style="margin-top: 16px;">
+                        <button type="submit" class="btn outline-btn large-btn">
+                            Leave Meetup
+                        </button>
+                    </form>
+
+                {% elif meetup.is_full %}
+                    <div class="notice-box danger">
+                        This meetup is already full. RSVP is not available.
+                    </div>
+
+                {% else %}
+                    <form method="POST" action="{{ url_for('rsvp_meetup', meetup_id=meetup.id) }}">
+                        <button type="submit" class="btn primary-btn large-btn">
+                            RSVP / Join Meetup
+                        </button>
+                    </form>
+                {% endif %}
+            {% elif session.role == 'organizer' %}
                 <div class="notice-box warning">
-                    You have already joined this meetup. Duplicate RSVP is not allowed.
-                </div>
-
-                <form method="POST" action="{{ url_for('leave_meetup', meetup_id=meetup.id) }}" style="margin-top: 16px;">
-                    <button type="submit" class="btn outline-btn large-btn">
-                        Leave Meetup
-                    </button>
-                </form>
-
-            {% elif meetup.is_full %}
-                <div class="notice-box danger">
-                    This meetup is already full. RSVP is not available.
-                </div>
-
-            {% elif session['role'] == 'participant' %}
-                <form method="POST" action="{{ url_for('rsvp_meetup', meetup_id=meetup.id) }}">
-                    <button type="submit" class="btn primary-btn large-btn">
-                        RSVP / Join Meetup
-                    </button>
-                </form>
-
-            {% else %}
-                <div class="notice-box warning">
-                    You are currently in organizer mode. Switch to participant mode to RSVP.
+                    You are currently in organizer mode. Organizers can manage their own meetup records from the action panel.
                 </div>
             {% endif %}
         </div>
@@ -129,36 +130,52 @@
 
         {% if (session.role == 'organizer' and meetup.organizer_id == session.user_id) or session.role == 'admin' %}
             <div class="organizer-actions">
+                <a href="{{ url_for('meetup_participants', meetup_id=meetup.id) }}" class="btn outline-btn full-width">
+                    View Participant List
+                </a>
+
                 <a href="{{ url_for('edit_meetup', meetup_id=meetup.id) }}" class="btn secondary-btn full-width">
                     Edit Meetup
                 </a>
+
+                {% if session.role == 'organizer' and meetup.status == 'active' %}
+                    <form
+                        method="POST"
+                        action="{{ url_for('cancel_meetup', meetup_id=meetup.id) }}"
+                        onsubmit="return confirm('Are you sure you want to cancel this meetup? Participants will no longer see it as active.');"
+                    >
+                        <input
+                            type="text"
+                            name="cancellation_reason"
+                            placeholder="Cancellation reason (optional)"
+                            style="width: 100%; margin-bottom: 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid #D0D5DD; box-sizing: border-box;"
+                        >
+                        <button type="submit" class="btn outline-btn full-width danger-btn">
+                            Cancel Meetup
+                        </button>
+                    </form>
+                {% endif %}
 
                 {% if session.role == 'admin' %}
                     <form
                         method="POST"
                         action="{{ url_for('delete_meetup', meetup_id=meetup.id) }}"
                         onsubmit="return confirm('Are you sure you want to permanently delete this meetup? This action cannot be undone.');"
-                        style="margin-top: 10px;"
                     >
-                        <button type="submit" class="btn outline-btn full-width danger-btn">Delete Meetup (Admin)</button>
+                        <button type="submit" class="btn outline-btn full-width danger-btn">
+                            Delete Meetup (Admin)
+                        </button>
                     </form>
                 {% endif %}
             </div>
         {% endif %}
 
-        {% if session.role in ['organizer', 'participant'] %}
-    <details class="report-section">
-        <summary class="report-toggle">Report Abuse</summary>
-        <form method="POST" action="{{ url_for('report_meetup', meetup_id=meetup.id) }}" class="report-form">
-            <textarea name="reason" rows="3" placeholder="Describe the issue with this meetup..." required></textarea>
-            <button type="submit" class="btn outline-btn full-width danger-btn">Submit Report</button>
-        </form>
-    </details>
-{% endif %}
-
-        <a class="btn full-width outline-btn" href="{{ url_for('active_meetups') }}">
-            Back to Active Meetups
-        </a>
+        <div style="margin-top: 14px;">
+            <a class="btn full-width outline-btn" href="{{ url_for('active_meetups') }}">
+                Back to Active Meetups
+            </a>
+        </div>
     </div>
 </div>
+
 {% endblock %}

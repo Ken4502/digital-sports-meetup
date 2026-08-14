@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="profile-page">
+    <div class="profile-page-header">
+        <div>
+            <h1>Completed Meetups</h1>
+            <p>Select a completed meetup you attended, then review the players from that meetup.</p>
+        </div>
+        <span class="profile-count">{{ meetups|length }} Meetup(s)</span>
+    </div>
+
+    {% if meetups %}
+        <div class="meetup-grid">
+            {% for meetup in meetups %}
+                <article class="meetup-card">
+                    <div class="meetup-card-header">
+                        <div>
+                            <span class="sport-badge">{{ meetup.sport_type }}</span>
+                            <h2>{{ meetup.title }}</h2>
+                        </div>
+                        <span class="status-badge full">Completed</span>
+                    </div>
+
+                    <div class="meetup-info">
+                        <p>
+                            <span>Date</span>
+                            <strong>{{ meetup.meetup_date or 'Not provided' }}</strong>
+                        </p>
+                        <p>
+                            <span>Time</span>
+                            <strong>{{ meetup.meetup_time or 'Not provided' }}</strong>
+                        </p>
+                        <p>
+                            <span>Location</span>
+                            <strong>{{ meetup.location }}</strong>
+                        </p>
+                        <p>
+                            <span>Participants</span>
+                            <strong>{{ meetup.participant_count }} player(s)</strong>
+                        </p>
+                        <p>
+                            <span>Review Progress</span>
+                            <strong>{{ meetup.rating_progress_text }}</strong>
+                        </p>
+                    </div>
+
+                    {% if meetup.rateable_count > 0 %}
+                        <a class="btn full-width outline-btn" href="{{ url_for('rate_participants', meetup_id=meetup.id) }}">
+                            Review Players
+                        </a>
+                    {% else %}
+                        <button class="btn full-width outline-btn" disabled>
+                            No Other Players to Review
+                        </button>
+                    {% endif %}
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state-box">
+            <h2>No Completed Meetups Available</h2>
+            <p>You can review players only after you have attended a completed meetup.</p>
+            <a class="btn secondary-btn" href="{{ url_for('active_meetups') }}">Browse Active Meetups</a>
+        </div>
+    {% endif %}
+</section>
+
+{% endblock %}

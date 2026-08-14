@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="profile-page">
+    <div class="profile-page-header">
+        <div>
+            <h1>My Player Reviews</h1>
+            <p>These are reviews you received from other players after completed meetups.</p>
+        </div>
+        <span class="profile-count">
+            {% if summary.review_count > 0 %}
+                {{ summary.average_rating }} / 5
+            {% else %}
+                No Reviews
+            {% endif %}
+        </span>
+    </div>
+
+    <div class="profile-detail-card" style="margin-bottom: 24px;">
+        <div class="profile-detail-grid">
+            <div class="profile-detail-item">
+                <span>Total Reviews</span>
+                <strong>{{ summary.review_count }}</strong>
+            </div>
+            <div class="profile-detail-item">
+                <span>Average Rating</span>
+                <strong>
+                    {% if summary.review_count > 0 %}
+                        {{ summary.average_rating }} / 5
+                    {% else %}
+                        Not available yet
+                    {% endif %}
+                </strong>
+            </div>
+        </div>
+    </div>
+
+    {% if reviews %}
+        <div class="profile-card-grid">
+            {% for review in reviews %}
+                <article class="profile-card-v2">
+                    <div class="profile-card-top">
+                        <div class="avatar-circle">★</div>
+                        <div>
+                            <h2>{{ review.average_rating }} / 5</h2>
+                            <span class="mini-badge">{{ review.sport_type }}</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-info-list">
+                        <div class="profile-info-row">
+                            <span>Meetup</span>
+                            <strong>{{ review.meetup_title }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Date</span>
+                            <strong>{{ review.meetup_date }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Reviewer</span>
+                            <strong>{{ review.rater_name or 'Participant' }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Attendance</span>
+                            <strong>{{ review.attendance_rating }} / 5</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Teamwork</span>
+                            <strong>{{ review.teamwork_rating }} / 5</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Sportsmanship</span>
+                            <strong>{{ review.sportsmanship_rating }} / 5</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Reliability</span>
+                            <strong>{{ review.reliability_rating }} / 5</strong>
+                        </div>
+                    </div>
+
+                    {% if review.comment %}
+                        <div class="bio-box" style="margin-top: 14px;">
+                            <h3>Comment</h3>
+                            <p>{{ review.comment }}</p>
+                        </div>
+                    {% endif %}
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state-box">
+            <h2>No Reviews Yet</h2>
+            <p>After you attend completed meetups, other participants can review you here.</p>
+        </div>
+    {% endif %}
+
+    <div class="profile-detail-actions">
+        <a class="btn outline-btn" href="{{ url_for('completed_meetups_for_rating') }}">Review Other Players</a>
+    </div>
+</section>
+
+{% endblock %}

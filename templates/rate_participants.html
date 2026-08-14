@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="profile-page">
+    <div class="profile-page-header">
+        <div>
+            <h1>Review Players</h1>
+            <p>Only participants from this completed meetup are shown here.</p>
+        </div>
+        <span class="profile-count">{{ already_rated_count }}/{{ participant_count }} Reviewed</span>
+    </div>
+
+    <div class="profile-detail-card" style="margin-bottom: 24px;">
+        <div class="profile-detail-top">
+            <div class="avatar-circle large-avatar">
+                {{ meetup.sport_type[:1] if meetup.sport_type else 'M' }}
+            </div>
+            <div>
+                <h1>{{ meetup.title }}</h1>
+                <span class="mini-badge">{{ meetup.sport_type }}</span>
+                <p class="profile-detail-subtitle">
+                    {{ meetup.meetup_date }} at {{ meetup.meetup_time }} · {{ meetup.location }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% if participants %}
+        <div class="profile-card-grid">
+            {% for participant in participants %}
+                <article class="profile-card-v2">
+                    <div class="profile-card-top">
+                        <div class="avatar-circle">
+                            {{ participant.full_name[:1] }}
+                        </div>
+                        <div>
+                            <h2>{{ participant.full_name }}</h2>
+                            <span class="mini-badge">Participant</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-info-list">
+                        <div class="profile-info-row">
+                            <span>Sport Interest</span>
+                            <strong>{{ participant.sport_interest }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Skill Level</span>
+                            <strong>{{ participant.skill_level }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>State</span>
+                            <strong>{{ participant.state }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Current Average</span>
+                            <strong>
+                                {% if participant.review_count > 0 %}
+                                    {{ participant.average_rating }} / 5 from {{ participant.review_count }} review(s)
+                                {% else %}
+                                    No reviews yet
+                                {% endif %}
+                            </strong>
+                        </div>
+                    </div>
+
+                    {% if participant.already_rated %}
+                        <div class="privacy-note-box" style="margin-top: 14px;">
+                            <strong>Already reviewed</strong>
+                            <p>You gave this player {{ participant.existing_rating.average_rating }} / 5 for this meetup.</p>
+                        </div>
+                        <button class="btn outline-btn full-width" disabled>Already Reviewed</button>
+                    {% else %}
+                        <a class="btn outline-btn full-width" href="{{ url_for('submit_player_rating', meetup_id=meetup.id, rated_user_id=participant.user_id) }}">
+                            Review This Player
+                        </a>
+                    {% endif %}
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state-box">
+            <h2>No Players Available to Review</h2>
+            <p>There are no other confirmed participants from this completed meetup.</p>
+        </div>
+    {% endif %}
+
+    <div class="profile-detail-actions">
+        <a class="btn outline-btn" href="{{ url_for('completed_meetups_for_rating') }}">Back to Completed Meetups</a>
+        <a class="btn outline-btn" href="{{ url_for('my_reviews') }}">View My Reviews</a>
+    </div>
+</section>
+
+{% endblock %}

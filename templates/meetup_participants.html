@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="profile-page">
+    <div class="profile-page-header">
+        <div>
+            <h1>Meetup Participant List</h1>
+            <p>View confirmed participants who joined this meetup.</p>
+        </div>
+        <span class="profile-count">{{ participant_count }} Participant(s)</span>
+    </div>
+
+    <div class="profile-detail-card" style="margin-bottom: 24px;">
+        <div class="profile-detail-top">
+            <div class="avatar-circle large-avatar">
+                {{ meetup.sport_type[:1] }}
+            </div>
+            <div>
+                <h1>{{ meetup.title|default(meetup.sport_type ~ ' Meetup') }}</h1>
+                <span class="mini-badge">{{ meetup.status|default('active')|capitalize }}</span>
+                <p class="profile-detail-subtitle">
+                    {{ meetup.meetup_date }} at {{ meetup.meetup_time }} · {{ meetup.location }}
+                </p>
+            </div>
+        </div>
+
+        <div class="profile-detail-grid">
+            <div class="profile-detail-item">
+                <span>Sport</span>
+                <strong>{{ meetup.sport_type }}</strong>
+            </div>
+            <div class="profile-detail-item">
+                <span>Capacity</span>
+                <strong>{{ meetup.capacity }} person(s)</strong>
+            </div>
+            <div class="profile-detail-item">
+                <span>Confirmed Joined</span>
+                <strong>{{ participant_count }} person(s)</strong>
+            </div>
+            <div class="profile-detail-item">
+                <span>Available Slots</span>
+                <strong>{{ meetup.available_slots }} slot(s)</strong>
+            </div>
+        </div>
+    </div>
+
+    {% if participants %}
+        <div class="profile-card-grid">
+            {% for participant in participants %}
+                <article class="profile-card-v2">
+                    <div class="profile-card-top">
+                        <div class="avatar-circle">
+                            {{ participant.full_name[:1] }}
+                        </div>
+                        <div>
+                            <h2>{{ participant.full_name }}</h2>
+                            <span class="mini-badge">Participant</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-info-list">
+                        <div class="profile-info-row">
+                            <span>Sport Interest</span>
+                            <strong>{{ participant.sport_interest or 'Not provided' }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Skill Level</span>
+                            <strong>{{ participant.skill_level or 'Not provided' }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>State</span>
+                            <strong>{{ participant.state or 'Not provided' }}</strong>
+                        </div>
+                        <div class="profile-info-row">
+                            <span>Status</span>
+                            <strong>{{ participant.status or 'active' }}</strong>
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state-box">
+            <h2>No participants yet</h2>
+            <p>No confirmed participants have joined this meetup yet.</p>
+        </div>
+    {% endif %}
+
+    <div class="profile-detail-actions">
+        <a class="btn secondary-btn" href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}">
+            Back to Meetup Details
+        </a>
+    </div>
+</section>
+
+{% endblock %}

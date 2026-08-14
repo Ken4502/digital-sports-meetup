@@ -72,13 +72,21 @@
         </details>
 
         <div class="profile-detail-actions">
-            {% if request.path.startswith('/organizer') %}
-                <a class="secondary-btn" href="{{ url_for('organizer_participant_profiles') }}">
-                    Back to Profiles
+            {% if request.path.startswith('/organizer/organizers') %}
+                <a class="btn secondary-btn" href="{{ url_for('organizer_organizer_profiles') }}">
+                    Back to Organizer Profiles
+                </a>
+            {% elif request.path.startswith('/organizer/participants') %}
+                <a class="btn secondary-btn" href="{{ url_for('organizer_participant_profiles') }}">
+                    Back to Participant Profiles
+                </a>
+            {% elif request.path.startswith('/organizers') %}
+                <a class="btn secondary-btn" href="{{ url_for('participant_organizer_profiles') }}">
+                    Back to Organizer Profiles
                 </a>
             {% else %}
-                 <a class="secondary-btn" href="{{ url_for('participant_profiles') }}">
-                    Back to Profiles
+                <a class="btn secondary-btn" href="{{ url_for('participant_profiles') }}">
+                    Back to Participant Profiles
                 </a>
             {% endif %}
         </div>
