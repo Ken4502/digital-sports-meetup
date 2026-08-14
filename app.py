@@ -2492,6 +2492,15 @@ def meetup_participants(meetup_id):
         if user.get("status", "active") != "active":
             continue
 
+        participant_data = {
+            "user_id": user_doc.id,
+            "full_name": user.get("full_name", ""),
+            "sport_interest": user.get("sport_interest", ""),
+            "skill_level": user.get("skill_level", ""),
+            "state": user.get("state", ""),
+            "status": user.get("status", "active"),
+        }
+
         # Attach payment info if this is a paid meetup
         if meetup.get("is_paid"):
             rsvp_id = f"{meetup_id}_{participant_id}"
