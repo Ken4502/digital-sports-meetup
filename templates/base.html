@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Sports Meetup</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <nav class="top-navbar">
+        <div class="nav-brand">
+            <div class="logo-circle">SM</div>
+            <div>
+                <h2>Smart Sports Meetup</h2>
+                <span>Meetup Schedule Management</span>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            {% if session.user_id %}
+                <a href="{{ url_for('index') }}">Home</a>
+                
+                {% if session.role == 'participant' %}
+                    <a href="{{ url_for('my_profile') }}">My Profile</a>
+                    <a href="{{ url_for('participant_profiles') }}">Participant Profiles</a>
+                    <a href="{{ url_for('participant_organizer_profiles') }}">Organizer Profiles</a>
+                    <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
+                    <a href="{{ url_for('completed_meetups_for_rating') }}">Rate Players</a>
+                    <a href="{{ url_for('my_reviews') }}">My Reviews</a>
+                {% elif session.role == 'organizer' %}
+                    <a href="{{ url_for('my_profile') }}">My Profile</a>
+                    <a href="{{ url_for('create_meetup') }}">Create Meetup</a>
+                    <a href="{{ url_for('active_meetups') }}">Active Meetups</a>
+                    <a href="{{ url_for('organizer_participant_profiles') }}">Participant Profiles</a>
+                    <a href="{{ url_for('organizer_organizer_profiles') }}">Organizer Profiles</a>
+                {% elif session.role == 'admin' %}
+                    <a href="{{ url_for('admin_dashboard') }}">Manage Users</a>
+                    <a href="{{ url_for('manage_meetups') }}">Manage Meetups</a>
+                    <a href="{{ url_for('manage_reviews') }}">Manage Reviews</a>
+                {% endif %}
+
+                <a href="{{ url_for('logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Login</a>
+                <a href="{{ url_for('register') }}">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    {% if session.user_id %}
+        <section class="user-status-bar">
+            <div>
+                Logged in as 
+                <strong>{{ session['user_id'] }}</strong>
+                <span class="role-badge">{{ session['role'] }}</span>
+            </div>
+        </section>
+    {% endif %}
+
+    <main class="page-wrapper">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert-box">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

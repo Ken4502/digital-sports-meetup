@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <span class="small-label">Participant View</span>
+    <h1>Active Sports Meetups</h1>
+    <p>Basic listing page for participants to view available active meetups.</p>
+</div>
+
+<!-- Search and Filter Form -->
+<div class="create-form-card" style="margin-bottom: 30px;">
+    <div class="form-title-row">
+        <div>
+            <h2 style="font-size: 28px;">Find a Meetup</h2>
+            <p>Filter by keyword, location, sport, or date.</p>
+        </div>
+    </div>
+
+    <form method="GET" action="{{ url_for('active_meetups') }}" class="modern-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="keyword">Keyword</label>
+                <input type="text" id="keyword" name="keyword" placeholder="e.g., Badminton, KL" value="{{ filters.keyword or '' }}">
+            </div>
+            <div class="form-group">
+                <label for="state">State</label>
+                <select id="state" name="state">
+                    <option value="">All States</option>
+                    <option value="Penang" {% if filters.state == "Penang" %}selected{% endif %}>Penang</option>
+                    <option value="Kuala Lumpur" {% if filters.state == "Kuala Lumpur" %}selected{% endif %}>Kuala Lumpur</option>
+                    <option value="Selangor" {% if filters.state == "Selangor" %}selected{% endif %}>Selangor</option>
+                    <option value="Perak" {% if filters.state == "Perak" %}selected{% endif %}>Perak</option>
+                    <option value="Kedah" {% if filters.state == "Kedah" %}selected{% endif %}>Kedah</option>
+                    <option value="Perlis" {% if filters.state == "Perlis" %}selected{% endif %}>Perlis</option>
+                    <option value="Johor" {% if filters.state == "Johor" %}selected{% endif %}>Johor</option>
+                    <option value="Melaka" {% if filters.state == "Melaka" %}selected{% endif %}>Melaka</option>
+                    <option value="Negeri Sembilan" {% if filters.state == "Negeri Sembilan" %}selected{% endif %}>Negeri Sembilan</option>
+                    <option value="Pahang" {% if filters.state == "Pahang" %}selected{% endif %}>Pahang</option>
+                    <option value="Terengganu" {% if filters.state == "Terengganu" %}selected{% endif %}>Terengganu</option>
+                    <option value="Kelantan" {% if filters.state == "Kelantan" %}selected{% endif %}>Kelantan</option>
+                    <option value="Sabah" {% if filters.state == "Sabah" %}selected{% endif %}>Sabah</option>
+                    <option value="Sarawak" {% if filters.state == "Sarawak" %}selected{% endif %}>Sarawak</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sport_type">Sport Type</label>
+                <select id="sport_type" name="sport_type">
+                    <option value="">All Sports</option>
+                    {% for sport in sport_options %}
+                        <option value="{{ sport }}" {% if filters.sport_type == sport %}selected{% endif %}>{{ sport }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="meetup_date">Date</label>
+                <input type="date" id="meetup_date" name="meetup_date" value="{{ filters.meetup_date or '' }}">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{{ url_for('active_meetups') }}" class="btn cancel-btn">Reset</a>
+            <button type="submit" class="btn primary-btn">Search</button>
+        </div>
+    </form>
+</div>
+
+<div class="result-summary">
+    <p>Showing <strong>{{ meetups|length }}</strong> active meetup result(s).</p>
+</div>
+
+{% if db_connection_failed %}
+    <div class="empty-state">
+        <div class="empty-icon">🔌</div>
+        <h2>Database Connection Error</h2>
+        <p>Could not connect to the database to fetch meetups.</p>
+        {% if firebase_error_message %}
+            <p style="color: var(--danger-text); font-size: 14px; margin-top: 10px;">Error: {{ firebase_error_message }}</p>
+        {% endif %}
+    </div>
+{% elif meetups %}
+    <div class="meetup-grid">
+        {% for meetup in meetups %}
+            <div class="meetup-card">
+                <div class="meetup-card-header">
+                    <div>
+                        <span class="sport-badge">{{ meetup.sport_type }}</span>
+                        <h2>{{ meetup.title|default(meetup.sport_type ~ ' Meetup') }}</h2>
+                    </div>
+
+                    {% if meetup.is_full %}
+                        <span class="status-badge full">Full</span>
+                    {% else %}
+                        <span class="status-badge active">Active</span>
+                    {% endif %}
+                </div>
+
+                <div class="meetup-info">
+                    <p>
+                        <span>Date</span>
+                        <strong>{{ meetup.meetup_date }}</strong>
+                    </p>
+
+                    <p>
+                        <span>Time</span>
+                        <strong>{{ meetup.meetup_time }}</strong>
+                    </p>
+
+                    <p>
+                        <span>Location</span>
+                        <strong>{{ meetup.location }}</strong>
+                    </p>
+                </div>
+
+                <div class="slot-box">
+                    <div>
+                        <strong>{{ meetup.available_slots }}</strong>
+                        <span>Available Slots</span>
+                    </div>
+
+                    <div>
+                        <strong>{{ meetup.capacity }}</strong>
+                        <span>Total Capacity</span>
+                    </div>
+                </div>
+
+                <a class="btn full-width secondary-btn" href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}">
+                    View Details
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🏀</div>
+        <h2>No Active Meetups Found</h2>
+        {% if filters.keyword or filters.state or filters.sport_type or filters.meetup_date %}
+            <p>No active meetups match your current filters. Try adjusting your search criteria.</p>
+        {% else %}
+            <p>There are no active meetups at the moment. Why not switch to Organizer mode and create one?</p>
+        {% endif %}
+    </div>
+{% endif %}
+
+{% endblock %}

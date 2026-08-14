@@ -1,0 +1,6 @@
+# Use this for development by running:
+# pip install -r requirements-dev.txt
+
+pytest
+flake8
+pytest-html

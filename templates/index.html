@@ -1,9 +1,137 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Digital Sports Meetup</title>
-</head>
-<body>
-    <h1>Hello from Flask 👋</h1>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block content %}
+<section class="home-hero-v2">
+    <div class="home-hero-content">
+        <span class="home-kicker">Smart Sports Meetup Platform</span>
+
+        <h1>Find, Join, and Organize Sports Meetups Easily</h1>
+
+        <p>
+            A web-based sports meetup platform that helps participants discover active sports events
+            and allows organizers to create and manage community sports meetups.
+        </p>
+
+        <div class="home-hero-actions">
+            {% if session.get("user_id") %}
+                {% if session.get("role") == "organizer" %}
+                    <a href="{{ url_for('create_meetup') }}" class="home-primary-btn">
+                        Create Meetup
+                    </a>
+                    <a href="{{ url_for('active_meetups') }}" class="home-secondary-btn">
+                        View Active Meetups
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('active_meetups') }}" class="home-primary-btn">
+                        Browse Meetups
+                    </a>
+                    <a href="{{ url_for('participant_profiles') }}" class="home-secondary-btn">
+                        View Participants
+                    </a>
+                {% endif %}
+            {% else %}
+                <a href="{{ url_for('register') }}" class="home-primary-btn">
+                    Get Started
+                </a>
+                <a href="{{ url_for('login') }}" class="home-secondary-btn">
+                    Login
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="home-hero-panel">
+        <div class="home-panel-card active">
+            <span>01</span>
+            <div>
+                <h3>Create Sports Meetups</h3>
+                <p>Organizers can create events with sport type, date, time, location, and capacity.</p>
+            </div>
+        </div>
+
+        <div class="home-panel-card">
+            <span>02</span>
+            <div>
+                <h3>Join Active Events</h3>
+                <p>Participants can browse active meetups and RSVP for available sports activities.</p>
+            </div>
+        </div>
+
+        <div class="home-panel-card">
+            <span>03</span>
+            <div>
+                <h3>Connect With Players</h3>
+                <p>Users can view public participant profiles and understand sports interests.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="home-section-v2">
+    <div class="home-section-header">
+        <span class="home-kicker">What You Can Do</span>
+        <h2>Simple tools for sports meetup planning</h2>
+        <p>
+            The platform focuses on the main flow of creating, browsing, joining, and managing sports meetups.
+        </p>
+    </div>
+
+    <div class="home-card-grid-v2">
+        <article class="home-feature-card-v2">
+            <div class="home-feature-icon">+</div>
+            <h3>Create Meetup</h3>
+            <p>
+                Organizers can publish a sports meetup with important details such as date, time,
+                venue, capacity, and description.
+            </p>
+        </article>
+
+        <article class="home-feature-card-v2">
+            <div class="home-feature-icon">↗</div>
+            <h3>Browse Meetups</h3>
+            <p>
+                Participants can view available sports meetups and choose events that match their interest.
+            </p>
+        </article>
+
+        <article class="home-feature-card-v2">
+            <div class="home-feature-icon">✓</div>
+            <h3>RSVP Control</h3>
+            <p>
+                The system prevents duplicate RSVP and blocks participants from joining when a meetup is full.
+            </p>
+        </article>
+    </div>
+</section>
+
+<section class="home-role-section">
+    <div class="home-role-card">
+        <span class="home-role-label">For Participants</span>
+        <h2>Discover sports activities around you</h2>
+        <p>
+            Browse active sports meetups, view meetup details, and join events with available slots.
+        </p>
+        <a href="{{ url_for('active_meetups') }}" class="home-text-link">
+            Browse active meetups →
+        </a>
+    </div>
+
+    <div class="home-role-card dark">
+        <span class="home-role-label">For Organizers</span>
+        <h2>Create and manage sports events</h2>
+        <p>
+            Set up sports meetups, manage event information, and allow participants to join easily.
+        </p>
+
+        {% if session.get("role") == "organizer" %}
+            <a href="{{ url_for('create_meetup') }}" class="home-text-link light">
+                Create a meetup →
+            </a>
+        {% else %}
+            <a href="{{ url_for('active_meetups') }}" class="home-text-link light">
+                View meetups →
+            </a>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

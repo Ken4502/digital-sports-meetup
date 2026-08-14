@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="profile-detail-page">
+    <div class="profile-detail-card">
+
+        <div class="profile-detail-top">
+            <div class="avatar-circle large-avatar">
+                {{ profile.full_name[:1] }}
+            </div>
+
+            <div>
+                <h1>{{ profile.full_name }}'s Participants</h1>
+                <span class="mini-badge organizer-badge">Organizer</span>
+                <p class="profile-detail-subtitle">
+                    Participants from meetups organized by {{ profile.full_name }}
+                </p>
+            </div>
+        </div>
+
+        {% if participants %}
+            <div class="profile-card-grid">
+                {% for participant in participants %}
+                    <article class="profile-card-v2">
+                        <div class="profile-card-top">
+                            <div class="avatar-circle">
+                                {{ participant.full_name[:1] }}
+                            </div>
+                            <div>
+                                <h2>{{ participant.full_name }}</h2>
+                                <span class="mini-badge">Participant</span>
+                            </div>
+                        </div>
+
+                        <div class="profile-info-list">
+                            <div class="profile-info-row">
+                                <span>Sport Interest</span>
+                                <strong>{{ participant.sport_interest }}</strong>
+                            </div>
+                            <div class="profile-info-row">
+                                <span>Skill Level</span>
+                                <strong>{{ participant.skill_level }}</strong>
+                            </div>
+                            <div class="profile-info-row">
+                                <span>State</span>
+                                <strong>{{ participant.state }}</strong>
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state-box">
+                <h2>No Participants Found</h2>
+                <p>This organizer has not yet had any participants join their meetups.</p>
+            </div>
+        {% endif %}
+
+        <div class="profile-detail-actions">
+            <a class="btn secondary-btn" href="{{ url_for('organizer_organizer_profiles') }}">
+                Back to Organizer Profiles
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

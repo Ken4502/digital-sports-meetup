@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <span class="small-label">Admin Hub</span>
+    <h1>Manage Report</h1>
+    <p>
+        Review this report, check the reported meetup or user, and resolve
+        or dismiss it once handled.
+    </p>
+</div>
+
+<div class="admin-table-card" style="padding: 20px; margin-bottom: 20px;">
+    <table class="admin-table">
+        <tbody>
+            <tr>
+                <td><strong>Type</strong></td>
+                <td>{{ report.type | capitalize }}</td>
+            </tr>
+            <tr>
+                <td><strong>Reported By</strong></td>
+                <td>{{ report.reported_by }} ({{ report.reporter_role }})</td>
+            </tr>
+            <tr>
+                <td><strong>Reason</strong></td>
+                <td>{{ report.reason }}</td>
+            </tr>
+            <tr>
+                <td><strong>Status</strong></td>
+                <td><span class="status-badge {{ report.status }}">{{ report.status | capitalize }}</span></td>
+            </tr>
+            <tr>
+                <td><strong>Date</strong></td>
+                <td>{{ report.created_at }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+{% if reported_meetup %}
+<div class="admin-table-card" style="padding: 20px; margin-bottom: 20px;">
+    <h2 style="margin-top: 0;">Reported Meetup</h2>
+    <table class="admin-table">
+        <tbody>
+            <tr>
+                <td><strong>Title</strong></td>
+                <td>{{ reported_meetup.title }}</td>
+            </tr>
+            <tr>
+                <td><strong>Sport</strong></td>
+                <td>{{ reported_meetup.sport_type }}</td>
+            </tr>
+            <tr>
+                <td><strong>Date & Time</strong></td>
+                <td>{{ reported_meetup.meetup_date }} {{ reported_meetup.meetup_time }}</td>
+            </tr>
+            <tr>
+                <td><strong>Location</strong></td>
+                <td>{{ reported_meetup.location }}</td>
+            </tr>
+            <tr>
+                <td><strong>Status</strong></td>
+                <td><span class="status-badge {{ reported_meetup.status }}">{{ reported_meetup.status | capitalize }}</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="table-actions" style="margin-top: 12px;">
+        <a href="{{ url_for('meetup_detail', meetup_id=reported_meetup.id) }}" class="btn table-btn">
+            View Meetup
+        </a>
+        <a href="{{ url_for('manage_meetups') }}?highlight={{ reported_meetup.id }}" class="btn table-btn">
+            Manage in Meetups Table
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% if reported_user %}
+<div class="admin-table-card" style="padding: 20px; margin-bottom: 20px;">
+    <h2 style="margin-top: 0;">Reported User {% if report.type == 'meetup' %}(Organizer){% endif %}</h2>
+    <table class="admin-table">
+        <tbody>
+            <tr>
+                <td><strong>Name</strong></td>
+                <td>{{ reported_user.full_name }}</td>
+            </tr>
+            <tr>
+                <td><strong>Email</strong></td>
+                <td>{{ reported_user.email }}</td>
+            </tr>
+            <tr>
+                <td><strong>Role</strong></td>
+                <td>{{ reported_user.role | capitalize }}</td>
+            </tr>
+            <tr>
+                <td><strong>Status</strong></td>
+                <td><span class="status-badge {{ reported_user.status }}">{{ reported_user.status | capitalize }}</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="table-actions" style="margin-top: 12px;">
+        <a href="{{ url_for('manage_user', user_id=reported_user.id) }}" class="btn table-btn">
+            View User
+        </a>
+
+        {% if reported_user.status == 'active' %}
+        <form method="POST" action="{{ url_for('disable_user_from_report', report_id=report.id, user_id=reported_user.id) }}"
+              onsubmit="return confirm('Disable this user?');">
+            <button type="submit" class="btn table-btn danger-btn">Disable User</button>
+        </form>
+        {% else %}
+            <span class="status-badge disabled">Already Disabled</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if report.status == 'pending' %}
+<div class="admin-table-card" style="padding: 20px;">
+    <h2 style="margin-top: 0;">Resolve Report</h2>
+    <div class="table-actions">
+        <form method="POST" action="{{ url_for('resolve_report', report_id=report.id) }}">
+            <input type="hidden" name="status" value="resolved">
+            <button type="submit" class="btn table-btn">Mark Resolved</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('resolve_report', report_id=report.id) }}">
+            <input type="hidden" name="status" value="dismissed">
+            <button type="submit" class="btn table-btn danger-btn">Dismiss</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div style="margin-top: 16px;">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn outline-btn">← Back to Dashboard</a>
+</div>
+
+{% endblock %}

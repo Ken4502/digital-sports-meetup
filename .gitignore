@@ -2,4 +2,7 @@ node_modules/
 .env
 dist/
 build/
-.vscode/
+.vscode/serviceAccountKey.json
+serviceAccountKey.json__pycache__/
+*.pyc
+serviceAccountKey.json

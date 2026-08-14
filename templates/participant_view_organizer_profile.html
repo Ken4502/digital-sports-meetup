@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="profile-detail-page">
+    <div class="profile-detail-card">
+        <div class="profile-detail-top">
+            <div class="avatar-circle large-avatar">
+                {{ profile.full_name[:1] }}
+            </div>
+
+            <div>
+                <h1>{{ profile.full_name }}</h1>
+                <span class="mini-badge organizer-badge">Organizer</span>
+                <p class="profile-detail-subtitle">
+                    Public organizer profile information
+                </p>
+            </div>
+        </div>
+
+        <div class="profile-detail-grid">
+            <div class="profile-detail-item">
+                <span>Organization</span>
+                <strong>{{ profile.organization_name or "Not provided" }}</strong>
+            </div>
+
+            <div class="profile-detail-item">
+                <span>Experience</span>
+                <strong>{{ profile.experience_years or 0 }} years</strong>
+            </div>
+
+            <div class="profile-detail-item">
+                <span>State</span>
+                <strong>{{ profile.state or "Not provided" }}</strong>
+            </div>
+
+            <div class="profile-detail-item">
+                <span>Status</span>
+                <strong>{{ profile.status | capitalize }}</strong>
+            </div>
+        </div>
+
+        <div class="bio-box">
+            <h2>About Organizer</h2>
+            <p>{{ profile.bio or "This organizer has not added a bio yet." }}</p>
+        </div>
+
+        <div class="privacy-note-box">
+            <strong>Privacy note:</strong>
+            Email and phone number are hidden from public view.
+        </div>
+
+        <details class="report-section">
+            <summary class="report-toggle">Report Abuse</summary>
+            <form method="POST" action="{{ url_for('report_profile') }}" class="report-form">
+                <input type="hidden" name="user_id" value="{{ profile.user_id }}">
+                <textarea name="reason" rows="3" placeholder="Describe the issue with this profile..." required></textarea>
+                <button type="submit" class="btn outline-btn">Submit Report</button>
+            </form>
+        </details>
+
+        <div class="profile-detail-actions">
+            <a class="btn secondary-btn" href="{{ url_for('participant_organizer_profiles') }}">
+                Back to Organizer Profiles
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

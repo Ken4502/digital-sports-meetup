@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="profile-page">
+    <div class="profile-page-header">
+        <div>
+            <h1>Organizer Profiles</h1>
+            <p>View other organizers' hosting profiles and experience.</p>
+        </div>
+        <span class="profile-count">{{ organizers|length }} Organizers</span>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="filter-card" style="border-radius: 24px; margin-bottom: 24px;">
+        <form method="GET" action="{{ url_for('organizer_organizer_profiles') }}" class="modern-form">
+            <div class="filter-grid" style="grid-template-columns: 1fr;">
+                <div class="form-group">
+                    <label for="keyword">Name or Organization</label>
+                    <input type="text" id="keyword" name="keyword" placeholder="Search by name or organization..." value="{{ filters.keyword or '' }}">
+                </div>
+            </div>
+            <div class="filter-actions">
+                <a href="{{ url_for('organizer_organizer_profiles') }}" class="btn cancel-btn">Reset</a>
+                <button type="submit" class="btn primary-btn">Filter</button>
+            </div>
+        </form>
+    </div>
+
+    {% if filters.keyword %}
+        <div class="result-summary">
+            <p>Showing <strong>{{ organizers|length }}</strong> matching profile(s).</p>
+        </div>
+    {% endif %}
+
+    {% if organizers %}
+        <div class="profile-card-grid">
+            {% for organizer in organizers %}
+                <article class="profile-card-v2">
+                    <div class="profile-card-top">
+                        <div class="avatar-circle">
+                            {{ organizer.full_name[:1] }}
+                        </div>
+
+                        <div>
+                            <h2>{{ organizer.full_name }}</h2>
+                            <span class="mini-badge organizer-badge">Organizer</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-info-list">
+                        <div class="profile-info-row">
+                            <span>Organization</span>
+                            <strong>{{ organizer.organization_name or "Not provided" }}</strong>
+                        </div>
+
+                        <div class="profile-info-row">
+                            <span>Experience</span>
+                            <strong>{{ organizer.experience_years or 0 }} years</strong>
+                        </div>
+
+                        <div class="profile-info-row">
+                            <span>State</span>
+                            <strong>{{ organizer.state or "Not provided" }}</strong>
+                        </div>
+
+                        <div class="profile-info-row">
+                            <span>Status</span>
+                            <strong>{{ organizer.status or "active" }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="profile-card-footer">
+                        <a class="btn profile-view-btn" href="{{ url_for('organizer_view_organizer_profile', user_id=organizer.user_id) }}">
+                            View Profile
+                        </a>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state-box">
+            <h2>No other organizer profiles found</h2>
+            {% if filters.keyword %}
+                <p>No organizers match your current filters. Try adjusting your search criteria.</p>
+            {% else %}
+                <p>There are no other active organizer accounts available in Firestore yet.</p>
+            {% endif %}
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="create-form-card">
+    <div class="form-title-row">
+        <div>
+            <h1>Edit Review</h1>
+            <p>As an admin, you can modify the ratings and comment for this review.</p>
+        </div>
+    </div>
+
+    <div class="profile-detail-card" style="margin-bottom: 24px;">
+        <div class="profile-detail-top">
+            <div>
+                <p class="profile-detail-subtitle">
+                    <strong>Reviewer:</strong> {{ review.rater_name }} <br>
+                    <strong>Reviewee:</strong> {{ review.rated_user_name }} <br>
+                    <strong>Meetup:</strong> {{ review.meetup_title }} on {{ review.meetup_date }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" class="modern-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="attendance_rating">Attendance Rating</label>
+                <select id="attendance_rating" name="attendance_rating" required>
+                    <option value="">Select rating</option>
+                    {% for score in range(1, 6) %}
+                        <option value="{{ score }}" {% if review.attendance_rating == score %}selected{% endif %}>
+                            {{ score }} / 5
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="teamwork_rating">Teamwork Rating</label>
+                <select id="teamwork_rating" name="teamwork_rating" required>
+                    <option value="">Select rating</option>
+                    {% for score in range(1, 6) %}
+                        <option value="{{ score }}" {% if review.teamwork_rating == score %}selected{% endif %}>
+                            {{ score }} / 5
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sportsmanship_rating">Sportsmanship Rating</label>
+                <select id="sportsmanship_rating" name="sportsmanship_rating" required>
+                    <option value="">Select rating</option>
+                    {% for score in range(1, 6) %}
+                        <option value="{{ score }}" {% if review.sportsmanship_rating == score %}selected{% endif %}>
+                            {{ score }} / 5
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="reliability_rating">Reliability Rating</label>
+                <select id="reliability_rating" name="reliability_rating" required>
+                    <option value="">Select rating</option>
+                    {% for score in range(1, 6) %}
+                        <option value="{{ score }}" {% if review.reliability_rating == score %}selected{% endif %}>
+                            {{ score }} / 5
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="comment">Comment</label>
+            <textarea id="comment" name="comment" rows="4" maxlength="300" placeholder="Enter a comment">{{ review.comment }}</textarea>
+            <small>Maximum 300 characters.</small>
+        </div>
+
+        <div class="form-actions">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn cancel-btn">
+                Cancel
+            </a>
+            <button type="submit" class="btn primary-btn">
+                Update Review
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
