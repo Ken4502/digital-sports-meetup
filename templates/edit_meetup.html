@@ -161,6 +161,30 @@
                 <small>Maximum 300 characters.</small>
             </div>
 
+            <hr>
+
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="is_paid" name="is_paid" {% if form_data.is_paid %}checked{% endif %} style="width: 20px; height: 20px;">
+                    This is a paid meetup
+                </label>
+                <small>If enabled, participants will pay at the physical counter to confirm their slot.</small>
+            </div>
+
+            <div class="form-group" id="priceGroup" style="{% if not form_data.is_paid %}display:none;{% endif %}">
+                <label for="price">Price (RM) <span>*</span></label>
+                <input
+                    type="number"
+                    id="price"
+                    name="price"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="Example: 10.00"
+                    value="{{ form_data.price or '' }}"
+                >
+                <small>Amount each participant pays at the counter to confirm their RSVP.</small>
+            </div>
+
             <div class="form-actions">
                 <a href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}" class="btn cancel-btn">Cancel</a>
                 <button type="submit" class="btn primary-btn">Save Changes</button>
@@ -169,4 +193,12 @@
     </div>
 </div>
 
+<script>
+    const isPaidCheckbox = document.getElementById("is_paid");
+    const priceGroup = document.getElementById("priceGroup");
+
+    isPaidCheckbox.addEventListener("change", function() {
+        priceGroup.style.display = isPaidCheckbox.checked ? "block" : "none";
+    });
+</script>
 {% endblock %}

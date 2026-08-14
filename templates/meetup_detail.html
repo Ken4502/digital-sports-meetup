@@ -60,9 +60,19 @@
         <div class="rsvp-section">
             {% if session.role == 'participant' %}
                 {% if meetup.already_joined %}
-                    <div class="notice-box warning">
-                        You have already joined this meetup. Duplicate RSVP is not allowed.
-                    </div>
+                    {% if meetup.is_paid and meetup.own_payment_status == 'pending' %}
+                        <div class="notice-box warning">
+                            You've reserved your slot. Please pay <strong>RM {{ "%.2f"|format(meetup.price) }}</strong> at the physical counter to confirm your booking.
+                        </div>
+                    {% elif meetup.is_paid and meetup.own_payment_status == 'paid' %}
+                        <div class="notice-box success">
+                            Payment confirmed. You're all set for this meetup.
+                        </div>
+                    {% else %}
+                        <div class="notice-box warning">
+                            You have already joined this meetup. Duplicate RSVP is not allowed.
+                        </div>
+                    {% endif %}
 
                     <form method="POST" action="{{ url_for('leave_meetup', meetup_id=meetup.id) }}" style="margin-top: 16px;">
                         <button type="submit" class="btn outline-btn large-btn">
@@ -74,6 +84,35 @@
                     <div class="notice-box danger">
                         This meetup is already full. RSVP is not available.
                     </div>
+
+                {% elif meetup.is_paid %}
+                    <div class="notice-box warning" style="margin-bottom: 14px;">
+                        This is a paid meetup — <strong>RM {{ "%.2f"|format(meetup.price) }}</strong> per participant, payable at the physical counter.
+                    </div>
+
+                    <form method="POST" action="{{ url_for('rsvp_meetup', meetup_id=meetup.id) }}" id="paidRsvpForm">
+                        <input type="hidden" name="payment_method" id="paymentMethodInput" value="">
+
+                        <label style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; cursor: pointer;">
+                            <input type="checkbox" id="confirmCounterPay" style="width: 20px; height: 20px; margin-top: 2px;">
+                            <span>I understand I must pay RM {{ "%.2f"|format(meetup.price) }} at the counter to confirm my slot.</span>
+                        </label>
+
+                        <button type="submit" class="btn primary-btn large-btn" id="paidRsvpButton" disabled>
+                            Reserve Slot (Pay at Counter)
+                        </button>
+                    </form>
+
+                    <script>
+                        const confirmCheckbox = document.getElementById("confirmCounterPay");
+                        const rsvpButton = document.getElementById("paidRsvpButton");
+                        const paymentMethodInput = document.getElementById("paymentMethodInput");
+
+                        confirmCheckbox.addEventListener("change", function() {
+                            rsvpButton.disabled = !confirmCheckbox.checked;
+                            paymentMethodInput.value = confirmCheckbox.checked ? "counter" : "";
+                        });
+                    </script>
 
                 {% else %}
                     <form method="POST" action="{{ url_for('rsvp_meetup', meetup_id=meetup.id) }}">
@@ -112,6 +151,18 @@
             <span>Capacity</span>
             <strong>{{ meetup.capacity }} person(s)</strong>
         </div>
+
+        {% if meetup.is_paid %}
+        <div class="summary-row">
+            <span>Price</span>
+            <strong>RM {{ "%.2f"|format(meetup.price) }}</strong>
+        </div>
+        {% else %}
+        <div class="summary-row">
+            <span>Price</span>
+            <strong>Free</strong>
+        </div>
+        {% endif %}
 
         <div class="summary-row">
             <span>Joined</span>

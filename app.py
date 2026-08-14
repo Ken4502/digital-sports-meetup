@@ -210,6 +210,8 @@ def get_form_data_from_request():
         "venue_name": request.form.get("venue_name", "").strip(),
         "address": request.form.get("address", "").strip(),
         "description": request.form.get("description", "").strip(),
+        "is_paid": request.form.get("is_paid") == "on",
+        "price": request.form.get("price", "").strip(),
     }
 
 
@@ -226,6 +228,20 @@ def validate_create_meetup_form(form_data):
     venue_name = form_data["venue_name"]
     address = form_data["address"]
     description = form_data["description"]
+    # Payment validation
+    is_paid = form_data.get("is_paid", False)
+    price = form_data.get("price", "")
+
+    if is_paid:
+        if not price:
+            errors.append("Price is required for a paid meetup.")
+        else:
+            try:
+                price_value = float(price)
+                if price_value <= 0:
+                    errors.append("Price must be greater than 0 for a paid meetup.")
+            except ValueError:
+                errors.append("Price must be a valid number.")
 
     # SCRUM-144: Sport type validation
     if not sport_type:
@@ -791,6 +807,21 @@ def validate_edit_meetup_form(form_data):
     address = form_data["address"]
     description = form_data["description"]
 
+    # Payment validation
+    is_paid = form_data.get("is_paid", False)
+    price = form_data.get("price", "")
+
+    if is_paid:
+        if not price:
+            errors.append("Price is required for a paid meetup.")
+        else:
+            try:
+                price_value = float(price)
+                if price_value <= 0:
+                    errors.append("Price must be greater than 0 for a paid meetup.")
+            except ValueError:
+                errors.append("Price must be a valid number.")
+
     # Sport type validation
     if not sport_type:
         errors.append("Sport type is required.")
@@ -943,6 +974,8 @@ def create_meetup():
             "participant_ids": [],
             "participants": [],
             "status": "active",
+            "is_paid": form_data["is_paid"],
+            "price": float(form_data["price"]) if form_data["is_paid"] else 0,
             "created_at": firestore.SERVER_TIMESTAMP,
             "updated_at": firestore.SERVER_TIMESTAMP,
         }
@@ -1200,6 +1233,13 @@ def meetup_detail(meetup_id):
         current_user_id in participants
     )
 
+    meetup["own_payment_status"] = None
+    if meetup["already_joined"] and meetup.get("is_paid"):
+        rsvp_id = f"{meetup_id}_{current_user_id}"
+        rsvp_doc = db.collection("rsvps").document(rsvp_id).get()
+        if rsvp_doc.exists:
+            meetup["own_payment_status"] = rsvp_doc.to_dict().get("payment_status")
+
     return render_template("meetup_detail.html", meetup=meetup)
 
 
@@ -1213,6 +1253,7 @@ def rsvp_meetup(meetup_id):
         return redirect(url_for("active_meetups"))
 
     participant_id = session["user_id"]
+    payment_method = request.form.get("payment_method", "").strip()
 
     meetup_ref = db.collection("meetups").document(meetup_id)
     rsvp_id = f"{meetup_id}_{participant_id}"
@@ -1249,11 +1290,27 @@ def rsvp_meetup(meetup_id):
         if joined_count >= capacity:
             return False, "This meetup is already full."
 
-        transaction.set(rsvp_ref, {
+        # Payment requirement for paid meetups
+        is_paid_meetup = meetup.get("is_paid", False)
+
+        if is_paid_meetup:
+            if payment_method != "counter":
+                return False, "Please select a payment method to confirm your RSVP."
+            payment_status = "pending"
+        else:
+            payment_method_final = "none"
+            payment_status = "not_required"
+
+        rsvp_data = {
             "meetup_id": meetup_id,
             "participant_id": participant_id,
+            "payment_status": payment_status if is_paid_meetup else "not_required",
+            "payment_method": payment_method if is_paid_meetup else "none",
+            "price": meetup.get("price", 0) if is_paid_meetup else 0,
             "created_at": firestore.SERVER_TIMESTAMP,
-        })
+        }
+
+        transaction.set(rsvp_ref, rsvp_data)
 
         transaction.update(meetup_ref, {
             "joined_count": firestore.Increment(1),
@@ -1262,7 +1319,10 @@ def rsvp_meetup(meetup_id):
             "updated_at": firestore.SERVER_TIMESTAMP,
         })
 
-        return True, "RSVP successful. You have joined this meetup."
+        if is_paid_meetup:
+            return True, "RSVP successful. Please pay at the counter to confirm your slot."
+        else:
+            return True, "RSVP successful. You have joined this meetup."
 
     success, message = rsvp_transaction(transaction, meetup_ref, rsvp_ref)
 
@@ -2274,6 +2334,8 @@ def edit_meetup(meetup_id):
             "description": form_data["description"],
             "capacity": int(form_data["capacity"]),
             "available_slots": updated_available_slots,
+            "is_paid": form_data["is_paid"],
+            "price": float(form_data["price"]) if form_data["is_paid"] else 0,
             "updated_at": firestore.SERVER_TIMESTAMP,
         }
 
@@ -2408,6 +2470,16 @@ def meetup_participants(meetup_id):
         if user.get("status", "active") != "active":
             continue
 
+        # Attach payment info if this is a paid meetup
+        if meetup.get("is_paid"):
+            rsvp_id = f"{meetup_id}_{participant_id}"
+            rsvp_doc = db.collection("rsvps").document(rsvp_id).get()
+            if rsvp_doc.exists:
+                rsvp_data = rsvp_doc.to_dict()
+                participant_data["payment_status"] = rsvp_data.get("payment_status", "pending")
+            else:
+                participant_data["payment_status"] = "pending"
+
         participants.append({
             "user_id": user_doc.id,
             "full_name": user.get("full_name", ""),
@@ -2493,6 +2565,45 @@ def meetup_participants(meetup_id):
     form_data["id"] = meetup_id
     return render_template("edit_meetup.html", form_data=form_data, meetup=form_data, sport_options=ALLOWED_SPORTS)
 
+@app.route("/meetup/<meetup_id>/participant/<user_id>/mark-paid", methods=["POST"])
+def mark_participant_paid(meetup_id, user_id):
+    current_role = session.get("role")
+    current_user_id = session.get("user_id")
+
+    if current_role not in ["organizer", "admin"]:
+        flash("You do not have permission to perform this action.", "error")
+        return redirect(url_for("index"))
+
+    if not require_firebase():
+        return redirect(url_for("meetup_participants", meetup_id=meetup_id))
+
+    meetup_doc = db.collection("meetups").document(meetup_id).get()
+    if not meetup_doc.exists:
+        flash("Meetup not found.", "error")
+        return redirect(url_for("active_meetups"))
+
+    meetup = meetup_doc.to_dict()
+
+    if current_role == "organizer" and meetup.get("organizer_id") != current_user_id:
+        flash("You can only manage payments for meetups that you have organized.", "error")
+        return redirect(url_for("active_meetups"))
+
+    rsvp_id = f"{meetup_id}_{user_id}"
+    rsvp_ref = db.collection("rsvps").document(rsvp_id)
+    rsvp_doc = rsvp_ref.get()
+
+    if not rsvp_doc.exists:
+        flash("RSVP record not found for this participant.", "error")
+        return redirect(url_for("meetup_participants", meetup_id=meetup_id))
+
+    rsvp_ref.update({
+        "payment_status": "paid",
+        "paid_confirmed_by": current_user_id,
+        "paid_confirmed_at": firestore.SERVER_TIMESTAMP,
+    })
+
+    flash("Payment marked as received.", "success")
+    return redirect(url_for("meetup_participants", meetup_id=meetup_id))
 
 @app.route("/meetup/<meetup_id>/delete", methods=["POST"])
 def delete_meetup(meetup_id):

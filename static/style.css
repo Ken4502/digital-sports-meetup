@@ -2229,3 +2229,7 @@ tr.highlighted-row {
     background: var(--warning-bg) !important;
     outline: 2px solid var(--warning-text);
 }
+
+.hidden-field {
+    display: none;
+}
