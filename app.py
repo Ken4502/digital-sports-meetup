@@ -1996,8 +1996,12 @@ def manage_reviews():
             )
 
             # Apply keyword filter
-            if filters["keyword"] and filters["keyword"] not in searchable_text:
-                continue
+            if filters["keyword"]:
+                keyword_terms = filters["keyword"].split()
+                if not all(
+                    term in searchable_text for term in keyword_terms
+                ):
+                    continue
 
             all_reviews.append(review)
 

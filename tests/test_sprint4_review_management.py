@@ -333,7 +333,7 @@ def test_delete_review_access_control(client, monkeypatch, role, user_id, expect
 
     response = client.post("/admin/review/review1/delete")
 
-    # Non-admins are blocked by the role check in the route
+    # Non-admins are blocked by the role check in the route, so the review should still exist
     if role != "admin":
         assert "review1" in fake_db.data["ratings"]
 
